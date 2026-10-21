@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { authApi } from '../api/auth'
 import { ApiError } from '../api/client'
 import type { SearchResult } from '../api/types'
 import { worldsApi } from '../api/worlds'
@@ -99,7 +100,9 @@ export default function Sidebar({ route }: { route: Route }) {
         <Icon n="settings" />{t('nav.settings')}
       </button>
       <button className={'userchip' + (route.page === 'profile' ? ' on' : '')} onClick={() => navigate('/profile')}>
-        <span className="av-sm">{user.name[0]?.toUpperCase()}</span>
+        {user.has_avatar
+          ? <img className="av-sm" src={authApi.avatarUrl(user)} alt="" />
+          : <span className="av-sm">{user.name[0]?.toUpperCase()}</span>}
         <span className="uc-text"><b>{user.name}</b><small>{user.email}</small></span>
       </button>
       <button className="nav" onClick={logout}><Icon n="logout" />{t('nav.logout')}</button>

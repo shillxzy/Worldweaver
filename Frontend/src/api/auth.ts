@@ -1,4 +1,4 @@
-import { api, ensureCsrf } from './client'
+import { API_BASE, api, ensureCsrf } from './client'
 import type { User, UserSettings } from './types'
 
 export const authApi = {
@@ -10,6 +10,13 @@ export const authApi = {
   updateMe: (data: Partial<Pick<User, 'name' | 'email' | 'bio'>>) => api.patch<User>('/auth/me/', data),
   deleteAccount: (password: string) => api.del('/auth/me/', { password }),
   changePassword: (old_password: string, new_password: string) => api.post<void>('/auth/password/', { old_password, new_password }),
+  uploadAvatar: (file: File) => {
+    const form = new FormData()
+    form.append('avatar', file)
+    return api.upload<User>('/auth/me/avatar/', form)
+  },
+  removeAvatar: () => api.del<User>('/auth/me/avatar/'),
+  avatarUrl: (user: Pick<User, 'avatar_version'>) => `${API_BASE}/auth/me/avatar/?v=${user.avatar_version}`,
   settings: () => api.get<UserSettings>('/settings/'),
   updateSettings: (data: Partial<UserSettings>) => api.patch<UserSettings>('/settings/', data),
 }

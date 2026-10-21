@@ -12,5 +12,6 @@ export const factionsApi = {
   memberships: (worldId: number, query: { character?: number; faction?: number } = {}) =>
     listAll<Membership>(`/worlds/${worldId}/memberships/`, query),
   addMembership: (worldId: number, data: MembershipInput) => api.post<Membership>(`/worlds/${worldId}/memberships/`, data),
+  updateMembership: (worldId: number, id: number, data: MembershipInput) => api.patch<Membership>(`/worlds/${worldId}/memberships/${id}/`, data),
   removeMembership: (worldId: number, id: number) => api.del(`/worlds/${worldId}/memberships/${id}/`),
 }

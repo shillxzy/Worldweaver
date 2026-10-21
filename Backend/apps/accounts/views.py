@@ -4,10 +4,13 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, status
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+
+from apps.common.images import clear_image, image_response, replace_image
 
 from .models import get_profile
 from .serializers import (
@@ -107,6 +110,27 @@ class MeView(APIView):
             # Worlds, books, files and analyses cascade from the user.
             user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AvatarView(APIView):
+    """The current user's private avatar (cropped to a square by the client)."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser]
+
+    @extend_schema(responses=None)
+    def get(self, request):
+        return image_response(get_profile(request.user).avatar, "Аватарку не завантажено.")
+
+    @extend_schema(request={"multipart/form-data": {"type": "object", "properties": {"avatar": {"type": "string", "format": "binary"}}}}, responses=UserSerializer)
+    def post(self, request):
+        replace_image(get_profile(request.user), "avatar", request.FILES.get("avatar"), 1024, ["updated_at"])
+        return Response(UserSerializer.represent(request.user))
+
+    @extend_schema(responses=UserSerializer)
+    def delete(self, request):
+        clear_image(get_profile(request.user), "avatar", ["updated_at"])
+        return Response(UserSerializer.represent(request.user))
 
 
 class PasswordChangeView(APIView):

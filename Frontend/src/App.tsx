@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { authApi } from './api/auth'
 import { booksApi } from './api/books'
@@ -24,7 +24,10 @@ import Profile from './pages/Profile'
 import Settings from './pages/Settings'
 import Timeline from './pages/Timeline'
 
-const EMPTY_USER: User = { id: 0, name: '', email: '', bio: '', date_joined: '' }
+// The graph canvas (React Flow) is loaded only when the graph section is opened.
+const Graph = lazy(() => import('./pages/Graph'))
+
+const EMPTY_USER: User = { id: 0, name: '', email: '', bio: '', has_avatar: false, avatar_version: 0, date_joined: '' }
 
 function stored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
@@ -50,6 +53,7 @@ function renderRoute(route: Route, book: Book | undefined): ReactNode {
         case 'overview': return <Overview book={book} />
         case 'encyclopedia': return <Encyclopedia book={book} focus={route.focus} />
         case 'characters': return <Characters book={book} focus={route.focus} />
+        case 'graph': return <Suspense fallback={<Loading />}><Graph book={book} /></Suspense>
         case 'diary': return <Diary book={book} />
         case 'book': return <BookPage book={book} focus={route.focus} />
         case 'timeline': return <Timeline book={book} />

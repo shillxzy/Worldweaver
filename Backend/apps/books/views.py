@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.common.exceptions import Conflict
+from apps.common.images import clear_image, image_response, replace_image
 from apps.common.scoping import parse_id
 
 from .docx_io import export_docx, parse_docx, blocks_to_document, split_by_headings
@@ -77,6 +78,19 @@ class BookViewSet(viewsets.ModelViewSet):
         book = self.get_object()
         chapters = [(c.title, c.content) for c in book.chapters.order_by("order", "id")]
         return docx_response(export_docx(book.title, chapters), book.title)
+
+    @extend_schema(request={"multipart/form-data": {"type": "object", "properties": {"cover": {"type": "string", "format": "binary"}}}}, responses=BookSerializer)
+    @action(detail=True, methods=["get", "post", "delete"], parser_classes=[MultiPartParser], url_path="cover")
+    def cover(self, request, pk=None):
+        """Private cover image. The client crops it to 3:4 before upload; the server re-encodes it."""
+        book = self.get_object()
+        if request.method == "GET":
+            return image_response(book.cover, "Обкладинку не завантажено.")
+        if request.method == "DELETE":
+            clear_image(book, "cover", ["updated_at"])
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        replace_image(book, "cover", request.FILES.get("cover"), 1600, ["updated_at"])
+        return Response(self.get_serializer(self.get_queryset().get(pk=book.pk)).data)
 
     @extend_schema(responses=None)
     @action(detail=True, methods=["get"])

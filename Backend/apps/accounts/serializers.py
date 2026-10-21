@@ -22,6 +22,8 @@ class UserSerializer(serializers.Serializer):
             "name": profile.display_name or user.get_username(),
             "email": user.email,
             "bio": profile.bio,
+            "has_avatar": bool(profile.avatar),
+            "avatar_version": int(profile.updated_at.timestamp()) if profile.updated_at else 0,
             "date_joined": user.date_joined,
         }
 

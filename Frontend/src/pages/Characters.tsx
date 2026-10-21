@@ -3,6 +3,7 @@ import { charactersApi } from '../api/characters'
 import type { Book, Character } from '../api/types'
 import { CharacterForm } from '../components/EntityForms'
 import Header from '../components/Header'
+import { Lightbox } from '../components/ImageCropper'
 import Icon from '../components/Icon'
 import { Empty, ErrorState, Loading } from '../components/Ui'
 import { useAsync } from '../hooks'
@@ -18,6 +19,7 @@ export default function Characters({ book, focus }: { book: Book; focus?: string
   const [query, setQuery] = useState('')
   const [chosen, setChosen] = useState<{ item?: Character } | null>(null)
   const [focusDismissed, setFocusDismissed] = useState(false)
+  const [viewing, setViewing] = useState<Character | null>(null)
   const characters = useAsync<Character[]>((signal) => charactersApi.list(worldId, {}, signal), [worldId])
   // A search result link (#…?focus=character:ID) opens that character once.
   const focused = !focusDismissed && focus?.startsWith('character:')
@@ -47,7 +49,8 @@ export default function Characters({ book, focus }: { book: Book; focus?: string
                 <div className="banner" style={{ background: `linear-gradient(135deg, hsl(${h} 45% 32%), hsl(${h + 50} 45% 14%))` }} />
                 <div className="char-body">
                   {c.has_portrait
-                    ? <img className="av" src={charactersApi.portraitUrl(worldId, c)} alt={c.name} />
+                    ? <img className="av zoomable" src={charactersApi.portraitUrl(worldId, c)} alt={c.name}
+                        onClick={(e) => { e.stopPropagation(); setViewing(c) }} />
                     : <div className="av" style={{ background: `hsl(${h} 45% 38%)` }}>{c.name.replace(HONORIFIC, '')[0]}</div>}
                   <h3>{c.name}</h3>
                   {c.status !== 'unknown' && <small className={'status ' + c.status}>{t('status.' + c.status)}</small>}
@@ -61,6 +64,7 @@ export default function Characters({ book, focus }: { book: Book; focus?: string
           })}
         </div>
       )}
+      {viewing && <Lightbox src={charactersApi.portraitUrl(worldId, viewing)} alt={viewing.name} onClose={() => setViewing(null)} />}
       {editing && <CharacterForm worldId={worldId} character={editing.item} onClose={() => setEditing(null)} onSaved={characters.reload} />}
     </>
   )

@@ -28,6 +28,7 @@ class Book(models.Model):
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFTING)
     manuscript_format = models.CharField(max_length=12, choices=Format.choices, default=Format.NOVEL)
     accent = models.CharField(max_length=7, default="#e0b36a", validators=[hex_color])
+    cover = models.ImageField(upload_to="covers/", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

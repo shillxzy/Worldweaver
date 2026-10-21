@@ -329,3 +329,19 @@ class Relationship(models.Model):
     @property
     def target(self):
         return self._side("target")
+
+
+class GraphLayout(models.Model):
+    """Saved node positions of an auto-generated world graph (per view)."""
+
+    class View(models.TextChoices):
+        FACTIONS = "factions", "Фракції"
+        RELATIONS = "relations", "Звʼязки та родичі"
+
+    world = models.ForeignKey(World, on_delete=models.CASCADE, related_name="graph_layouts")
+    view = models.CharField(max_length=10, choices=View.choices)
+    positions = models.JSONField(default=dict, blank=True, help_text='{"character:1": [x, y], ...}')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["world", "view"], name="uniq_graph_layout")]

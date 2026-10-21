@@ -557,6 +557,50 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/auth/me/avatar/:
+    get:
+      operationId: auth_me_avatar_retrieve
+      description: The current user's private avatar (cropped to a square by the client).
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: auth_me_avatar_create
+      description: The current user's private avatar (cropped to a square by the client).
+      tags:
+      - auth
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    delete:
+      operationId: auth_me_avatar_destroy
+      description: The current user's private avatar (cropped to a square by the client).
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/auth/password/:
     post:
       operationId: auth_password_create
@@ -1775,6 +1819,78 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/books/{id}/cover/:
+    get:
+      operationId: books_cover_retrieve
+      description: Private cover image. The client crops it to 3:4 before upload;
+        the server re-encodes it.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this book.
+        required: true
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+          description: ''
+    post:
+      operationId: books_cover_create
+      description: Private cover image. The client crops it to 3:4 before upload;
+        the server re-encodes it.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this book.
+        required: true
+      tags:
+      - books
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                cover:
+                  type: string
+                  format: binary
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+          description: ''
+    delete:
+      operationId: books_cover_destroy
+      description: Private cover image. The client crops it to 3:4 before upload;
+        the server re-encodes it.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this book.
+        required: true
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/books/{id}/export/:
     get:
       operationId: books_export_retrieve
@@ -2856,6 +2972,49 @@ paths:
       - cookieAuth: []
       responses:
         '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/graph-layout/{view}/:
+    get:
+      operationId: worlds_graph_layout_retrieve
+      description: Saved node positions for the world graphs (``factions`` / ``relations``).
+      parameters:
+      - in: path
+        name: view
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: worlds_graph_layout_update
+      description: Saved node positions for the world graphs (``factions`` / ``relations``).
+      parameters:
+      - in: path
+        name: view
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
           description: No response body
   /api/v1/worlds/{world_pk}/lore/:
     get:
@@ -4129,6 +4288,9 @@ components:
           type: string
           pattern: ^#[0-9a-fA-F]{6}$
           maxLength: 7
+        has_cover:
+          type: boolean
+          readOnly: true
         chapters_count:
           type: integer
           readOnly: true
@@ -4156,6 +4318,7 @@ components:
       - chapters_count
       - created_at
       - done_chapters
+      - has_cover
       - id
       - progress
       - title

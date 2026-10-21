@@ -21,5 +21,6 @@ export const P = {
   trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
   globe: 'M12 21a9 9 0 100-18 9 9 0 000 18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
   check: 'M5 12l5 5L20 7',
+  graph: 'M6 6a2 2 0 100-4 2 2 0 000 4zM18 8a2 2 0 100-4 2 2 0 000 4zM12 20a2 2 0 100-4 2 2 0 000 4zM7.5 5.2l9 1.6M6.8 7.6l4.4 8.6M17.2 7.8l-4.4 8.4',
 }
 export type IconName = keyof typeof P

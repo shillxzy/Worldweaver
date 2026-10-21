@@ -11,6 +11,7 @@ class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
     display_name = models.CharField(max_length=150, blank=True)
     bio = models.TextField(blank=True, max_length=2000)
+    avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
     theme = models.CharField(max_length=10, choices=THEME_CHOICES, default="dark")
     language = models.CharField(max_length=5, choices=LANGUAGE_CHOICES, default="uk")
     quick_checks_enabled = models.BooleanField(default=True)

@@ -23,15 +23,19 @@ class BookSerializer(serializers.ModelSerializer):
     done_chapters = serializers.IntegerField(read_only=True, default=0)
     word_count = serializers.IntegerField(read_only=True, default=0)
     progress = serializers.SerializerMethodField()
+    has_cover = serializers.SerializerMethodField()
 
     class Meta:
         model = Book
         fields = [
             "id", "world", "world_name", "new_world_name", "title", "description", "genre", "status",
-            "manuscript_format", "accent", "chapters_count", "done_chapters", "word_count", "progress",
+            "manuscript_format", "accent", "has_cover", "chapters_count", "done_chapters", "word_count", "progress",
             "created_at", "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
+
+    def get_has_cover(self, obj) -> bool:
+        return bool(obj.cover)
 
     def get_progress(self, obj) -> int:
         total = getattr(obj, "chapters_count", 0) or 0

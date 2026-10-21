@@ -1,8 +1,13 @@
-/* ---------- власні обкладинки ---------- */
-type CoverBook = { id: number; title: string; accent: string }
+import { booksApi } from '../api/books'
 
-/** Two cover styles (deep sea / concentric rings), chosen deterministically per book. */
+/* ---------- власні обкладинки ---------- */
+type CoverBook = { id: number; title: string; accent: string; has_cover?: boolean; updated_at?: string }
+
+/** The uploaded cover image, or one of two generated styles (deep sea / concentric rings). */
 export default function CoverArt({ p, big }: { p: CoverBook; big?: boolean }) {
+  if (p.has_cover && p.updated_at) {
+    return <img className="cover-img" src={booksApi.coverUrl({ id: p.id, updated_at: p.updated_at })} alt={p.title} draggable={false} />
+  }
   const a = p.accent
   const sea = p.id % 2 === 1
   const gid = `cv${p.id}${big ? 'b' : ''}`

@@ -27,6 +27,7 @@
 | `POST /auth/login/` `{email, password}` · `POST /auth/logout/` | Вхід / вихід |
 | `GET/PATCH /auth/me/` · `DELETE /auth/me/` `{password}` | Профіль; видалення акаунта (каскадно з усіма даними) |
 | `POST /auth/password/` `{old_password, new_password}` | Зміна пароля |
+| `GET/POST/DELETE /auth/me/avatar/` | Приватна аватарка (клієнт обрізає до квадрата, сервер перекодовує до ≤1024 px) |
 | `GET/PATCH /settings/` | `theme`, `language`, `quick_checks_enabled`, `spellcheck_enabled` |
 | `GET /search/?q=` | Глобальний пошук по книгах і всіх світах користувача |
 | `GET/POST /worlds/` · `GET/PATCH/DELETE /worlds/{id}/` | Світи (з лічильниками). Фільтр `genre`, пошук |
@@ -38,11 +39,13 @@
 | `/worlds/{id}/lore/` | CRUD лору. Фільтри `category`, `tag`; пошук по назві, тексту, тегах |
 | `/worlds/{id}/timeline/` | Події з учасниками (`participants: [{character, role}]`), фракціями, лором, розділами |
 | `/worlds/{id}/dependencies/` | Часові залежності «A до B» (цикли відхиляються) |
+| `GET/PUT /worlds/{id}/graph-layout/{factions|relations}/` | Збережені позиції вузлів графа `{"character:1": [x, y]}` |
 | `GET /worlds/{id}/chronology/` | Топологічний порядок подій, ребра, наявність циклу |
 | `/worlds/{id}/relationships/` | Типізовані звʼязки `{kind, source: {type, id}, target: {type, id}, …}`; фільтр `entity_type`+`entity_id`, `kind` |
 | `POST /worlds/{id}/consistency/` `{book?}` | Детерміновані перевірки (синхронно), повертає завершене завдання |
 | `GET/POST /books/` · `/books/{id}/` | Книги (`world` або `new_world_name` при створенні); прогрес, слова |
 | `GET /books/{id}/export/` | Експорт книги в DOCX |
+| `GET/POST/DELETE /books/{id}/cover/` | Приватна обкладинка (клієнт обрізає до 3:4, сервер перекодовує до ≤1600 px) |
 | `GET /books/{id}/manuscript/` | Рукопис як текст по розділах |
 | `/books/{id}/chapters/` (+ `{cid}/`) | Розділи; `PATCH` з `content` (Tiptap JSON), `base_revision` → 409 при конфлікті, `snapshot` |
 | `POST /books/{id}/chapters/reorder/` `{order: [ids]}` | Перестановка розділів |

@@ -25,9 +25,10 @@ export default function Library() {
         <div className="books">
           {books.map((p) => (
             <button key={p.id} className="bk" style={accentVars(p.accent)} onClick={() => navigate(projectPath(p.id))}>
-              <div className="cover-art"><CoverArt p={p} big /></div>
+              <div className="cover-art"><CoverArt p={p} /></div>
               <div className="bk-info">
-                <h3>{p.genre || p.world_name}</h3>
+                <h3 className="bk-title">{p.title}</h3>
+                <span className="bk-genre">{p.genre || p.world_name}</span>
                 <div className="bar"><i style={{ width: p.progress + '%' }} /></div>
                 <div className="meta">
                   <span><Icon n="read" />{p.chapters_count}</span>

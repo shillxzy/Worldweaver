@@ -25,6 +25,7 @@ export const SECTIONS: { id: Section; icon: IconName }[] = [
   { id: 'overview', icon: 'overview' },
   { id: 'encyclopedia', icon: 'encyclopedia' },
   { id: 'characters', icon: 'users' },
+  { id: 'graph', icon: 'graph' },
   { id: 'diary', icon: 'pen' },
   { id: 'book', icon: 'read' },
   { id: 'timeline', icon: 'clock' },

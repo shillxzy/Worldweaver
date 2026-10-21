@@ -1,12 +1,9 @@
-import uuid
+import math
+import re
 
-from django.conf import settings
-from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Count, F, Prefetch, Q
-from django.http import HttpResponse
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from PIL import Image, UnidentifiedImageError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, ValidationError
@@ -14,6 +11,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.common.images import clear_image, image_response, replace_image
 from apps.common.scoping import WorldScopedMixin, owned_world_or_404
 
 from .models import (
@@ -21,6 +19,7 @@ from .models import (
     EventParticipant,
     Faction,
     FactionMembership,
+    GraphLayout,
     LoreEntry,
     Relationship,
     TimelineDependency,
@@ -80,68 +79,12 @@ class CharacterViewSet(WorldScopedMixin, viewsets.ModelViewSet):
     def portrait(self, request, world_pk=None, pk=None):
         character = self.get_object()
         if request.method == "GET":
-            if not character.portrait:
-                raise NotFound("Портрет не завантажено.")
-            # Portraits are re-encoded to <=1024px on upload, so reading them fully is cheap and
-            # avoids holding a file handle open (Windows locks open files).
-            with character.portrait.open("rb") as fh:
-                response = HttpResponse(fh.read(), content_type="image/" + _image_ext(character.portrait.name))
-            response["Cache-Control"] = "private, max-age=300"
-            response["X-Content-Type-Options"] = "nosniff"
-            return response
+            return image_response(character.portrait, "Портрет не завантажено.")
         if request.method == "DELETE":
-            if character.portrait:
-                character.portrait.delete(save=False)
-            character.portrait = None
-            character.save(update_fields=["portrait", "updated_at"])
+            clear_image(character, "portrait", ["updated_at"])
             return Response(status=status.HTTP_204_NO_CONTENT)
-        upload = request.FILES.get("portrait")
-        content, ext = validate_portrait(upload)
-        old = character.portrait.name if character.portrait else None
-        character.portrait.save(f"{uuid.uuid4().hex}.{ext}", ContentFile(content), save=False)
-        character.save(update_fields=["portrait", "updated_at"])
-        if old:
-            character.portrait.storage.delete(old)
+        replace_image(character, "portrait", request.FILES.get("portrait"), 1024, ["updated_at"])
         return Response(self.get_serializer(character).data)
-
-
-def _image_ext(name):
-    ext = name.rsplit(".", 1)[-1].lower()
-    return {"jpg": "jpeg"}.get(ext, ext)
-
-
-ALLOWED_IMAGE_FORMATS = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}
-
-
-def validate_portrait(upload):
-    """Validate an uploaded image by content (not by name) and re-encode it.
-
-    Re-encoding strips metadata and any trailing payload; the original filename is never used.
-    """
-    if upload is None:
-        raise ValidationError({"portrait": "Файл не передано."})
-    if upload.size > settings.WW_MAX_PORTRAIT_BYTES:
-        raise ValidationError({"portrait": f"Файл завеликий (максимум {settings.WW_MAX_PORTRAIT_BYTES // 1024 // 1024} МБ)."})
-    try:
-        with Image.open(upload) as probe:
-            probe.verify()
-        upload.seek(0)
-        with Image.open(upload) as img:
-            fmt = img.format
-            if fmt not in ALLOWED_IMAGE_FORMATS:
-                raise ValidationError({"portrait": "Дозволені формати: JPEG, PNG, WEBP."})
-            if img.width * img.height > 40_000_000:
-                raise ValidationError({"portrait": "Зображення має завелику роздільну здатність."})
-            img.thumbnail((1024, 1024))
-            if fmt == "JPEG" and img.mode not in ("RGB", "L"):
-                img = img.convert("RGB")
-            from io import BytesIO
-
-            buffer = BytesIO()
-            img.save(buffer, format=fmt)
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
-        raise ValidationError({"portrait": "Файл не є коректним зображенням."}) from exc
-    return buffer.getvalue(), ALLOWED_IMAGE_FORMATS[fmt]
 
 
 class FactionViewSet(WorldScopedMixin, viewsets.ModelViewSet):
@@ -270,3 +213,39 @@ def search_world(world, query, limit=20):
         snippet = ch.plain_text[max(0, idx - 60): idx + 100] if idx >= 0 else ""
         results.append({"type": "chapter", "id": ch.id, "book": ch.book_id, "title": f"{ch.book.title} — {ch.title}", "snippet": snippet})
     return {"query": query, "results": results}
+
+
+GRAPH_KEY_RE = re.compile(r"^(character|faction):\d{1,18}$")
+
+
+class GraphLayoutView(APIView):
+    """Saved node positions for the world graphs (``factions`` / ``relations``)."""
+
+    @extend_schema(responses=None)
+    def get(self, request, world_pk, view):
+        world = owned_world_or_404(request.user, world_pk)
+        layout = GraphLayout.objects.filter(world=world, view=_graph_view(view)).first()
+        return Response({"view": view, "positions": layout.positions if layout else {}})
+
+    @extend_schema(request=None, responses=None)
+    def put(self, request, world_pk, view):
+        world = owned_world_or_404(request.user, world_pk)
+        positions = request.data.get("positions") if isinstance(request.data, dict) else None
+        if not isinstance(positions, dict) or len(positions) > 2000:
+            raise ValidationError({"positions": "Очікується обʼєкт із не більше ніж 2000 вузлів."})
+        clean = {}
+        for key, value in positions.items():
+            if not isinstance(key, str) or not GRAPH_KEY_RE.match(key):
+                raise ValidationError({"positions": f"Некоректний ключ вузла: {str(key)[:40]}"})
+            if (not isinstance(value, list) or len(value) != 2
+                    or not all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and abs(v) <= 1e6 for v in value)):
+                raise ValidationError({"positions": f"Некоректна позиція для {key}."})
+            clean[key] = [round(float(value[0]), 1), round(float(value[1]), 1)]
+        GraphLayout.objects.update_or_create(world=world, view=_graph_view(view), defaults={"positions": clean})
+        return Response({"view": view, "positions": clean})
+
+
+def _graph_view(view):
+    if view not in GraphLayout.View.values:
+        raise NotFound("Невідомий вид графа.")
+    return view

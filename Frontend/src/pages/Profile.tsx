@@ -7,11 +7,13 @@ import { worldsApi } from '../api/worlds'
 import Header from '../components/Header'
 import Icon from '../components/Icon'
 import { FieldError } from '../components/Ui'
-import { useAsync, useBusy } from '../hooks'
+import { CropUpload, Lightbox } from '../components/ImageCropper'
+import { errorText, useAsync, useBusy } from '../hooks'
 import { useApp } from '../settings-context'
 
 export default function Profile() {
-  const { t, user, setUser, books } = useApp()
+  const { t, user, setUser, books, notify } = useApp()
+  const [viewing, setViewing] = useState(false)
   const [form, setForm] = useState({ name: user.name, email: user.email, bio: user.bio })
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<ApiError | null>(null)
@@ -39,7 +41,22 @@ export default function Profile() {
     <>
       <Header title={t('pr.title')} sub={t('pr.sub')} />
       <div className="me">
-        <div className="av big">{user.name[0]?.toUpperCase()}</div>
+        <div className="avatar-block">
+          {user.has_avatar
+            ? <button type="button" className="av big av-btn" onClick={() => setViewing(true)} aria-label={t('pr.viewAvatar')}>
+                <img src={authApi.avatarUrl(user)} alt={user.name} />
+              </button>
+            : <div className="av big">{user.name[0]?.toUpperCase()}</div>}
+          <CropUpload aspect={1} outputWidth={512} round className="link" onUpload={async (file) => {
+            try { setUser(await authApi.uploadAvatar(file)); notify(t('ui.saved')) } catch (err) { notify(errorText(err), 'error') }
+          }}>{user.has_avatar ? t('pr.changeAvatar') : t('pr.uploadAvatar')}</CropUpload>
+          {user.has_avatar && (
+            <button type="button" className="link" onClick={() => void authApi.removeAvatar().then(setUser).catch((err) => notify(errorText(err), 'error'))}>
+              {t('pr.removeAvatar')}
+            </button>
+          )}
+        </div>
+        {viewing && <Lightbox src={authApi.avatarUrl(user)} alt={user.name} onClose={() => setViewing(false)} />}
         <div>
           <h3 style={{ fontSize: 20 }}>{user.name}</h3>
           <p>{user.email}</p>

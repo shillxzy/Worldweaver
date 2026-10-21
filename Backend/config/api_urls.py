@@ -35,6 +35,7 @@ auth_urls = [
     path("login/", accounts.LoginView.as_view(), name="auth-login"),
     path("logout/", accounts.LogoutView.as_view(), name="auth-logout"),
     path("me/", accounts.MeView.as_view(), name="auth-me"),
+    path("me/avatar/", accounts.AvatarView.as_view(), name="auth-avatar"),
     path("password/", accounts.PasswordChangeView.as_view(), name="auth-password"),
 ]
 
@@ -45,6 +46,7 @@ urlpatterns = [
     path("import/docx/", books.DocxImportView.as_view(), name="import-docx"),
     path("worlds/<int:world_pk>/search/", worlds.WorldSearchView.as_view(), name="world-search"),
     path("worlds/<int:world_pk>/consistency/", analysis.WorldConsistencyView.as_view(), name="world-consistency"),
+    path("worlds/<int:world_pk>/graph-layout/<str:view>/", worlds.GraphLayoutView.as_view(), name="graph-layout"),
     path("worlds/<int:world_pk>/chronology/", analysis.WorldChronologyView.as_view(), name="world-chronology"),
     path("analysis/quick-check/", analysis.QuickCheckView.as_view(), name="quick-check"),
     path("ai/status/", analysis.AIStatusView.as_view(), name="ai-status"),

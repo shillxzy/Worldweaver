@@ -4,7 +4,7 @@ export type Precision = 'exact' | 'approximate' | 'unknown'
 /** Decimals arrive from DRF as strings ("212.0000"). */
 export type TimeKey = string | null
 
-export type User = { id: number; name: string; email: string; bio: string; date_joined: string }
+export type User = { id: number; name: string; email: string; bio: string; has_avatar: boolean; avatar_version: number; date_joined: string }
 
 export type UserSettings = {
   theme: 'dark' | 'light'
@@ -120,7 +120,7 @@ export type ManuscriptFormat = 'novel' | 'novella' | 'short_story' | 'screenplay
 
 export type Book = {
   id: number; world: number; world_name: string; title: string; description: string; genre: string
-  status: BookStatus; manuscript_format: ManuscriptFormat; accent: string
+  status: BookStatus; manuscript_format: ManuscriptFormat; accent: string; has_cover: boolean
   chapters_count: number; done_chapters: number; word_count: number | null; progress: number
   created_at: string; updated_at: string
 }

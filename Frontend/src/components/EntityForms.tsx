@@ -10,6 +10,7 @@ import type { Character, CharacterStatus, Faction, LoreCategory, LoreEntry, Prec
 import { LORE_CATEGORIES } from '../data/projects'
 import { errorText, useAsync, useBusy } from '../hooks'
 import { useApp } from '../settings-context'
+import { CropUpload, Lightbox } from './ImageCropper'
 import { Confirm, FieldError, Modal } from './Ui'
 
 const STATUSES: CharacterStatus[] = ['alive', 'dead', 'missing', 'unknown', 'other']
@@ -119,11 +120,17 @@ export function CharacterForm({ worldId, character, onClose, onSaved }: {
     })
   }
 
-  const upload = (file: File | undefined) => {
-    if (!file || !c) return
-    void run(async () => {
-      try { await charactersApi.uploadPortrait(worldId, c.id, file); notify(t('ui.saved')); onSaved() } catch (err) { notify(errorText(err), 'error') }
-    })
+  const [portrait, setPortrait] = useState({ has: c?.has_portrait ?? false, version: c?.updated_at ?? '' })
+  const [viewing, setViewing] = useState(false)
+  const portraitSrc = c ? charactersApi.portraitUrl(worldId, { id: c.id, updated_at: portrait.version }) : ''
+  const upload = async (file: File) => {
+    if (!c) return
+    try {
+      const saved = await charactersApi.uploadPortrait(worldId, c.id, file)
+      setPortrait({ has: true, version: saved.updated_at })
+      notify(t('ui.saved'))
+      onSaved()
+    } catch (err) { notify(errorText(err), 'error') }
   }
 
   const addMembership = () => {
@@ -151,6 +158,20 @@ export function CharacterForm({ worldId, character, onClose, onSaved }: {
 
   return (
     <FormShell title={c ? c.name : t('cf.new')} onClose={onClose} onSubmit={submit} busy={busy} error={error} onDelete={c ? del.ask : undefined} wide>
+      {c && (
+        <div className="portrait-row">
+          {portrait.has
+            ? <button type="button" className="av big av-btn" onClick={() => setViewing(true)} aria-label={t('cf.viewPortrait')}><img src={portraitSrc} alt={c.name} /></button>
+            : <div className="av big">{c.name[0]}</div>}
+          <div className="cover-acts">
+            <CropUpload aspect={1} outputWidth={768} round onUpload={upload}>{portrait.has ? t('cf.changePortrait') : t('cf.uploadPortrait')}</CropUpload>
+            {portrait.has && <button type="button" className="link" onClick={() => void run(async () => {
+              try { await charactersApi.removePortrait(worldId, c.id); setPortrait({ has: false, version: '' }); onSaved() } catch (err) { notify(errorText(err), 'error') }
+            })}>{t('cf.removePortrait')}</button>}
+          </div>
+          {viewing && <Lightbox src={portraitSrc} alt={c.name} onClose={() => setViewing(false)} />}
+        </div>
+      )}
       <div className="row2">
         <label>{t('cf.name')}<input className="field" required value={form.name} onChange={set('name')} autoFocus /><FieldError text={error?.field('name')} /></label>
         <label>{t('cf.status')}
@@ -187,13 +208,6 @@ export function CharacterForm({ worldId, character, onClose, onSaved }: {
       {text('notes', true)}
       {c && (
         <>
-          <fieldset>
-            <legend>{t('cf.portrait')}</legend>
-            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => upload(e.target.files?.[0])} />
-            {c.has_portrait && <button type="button" className="link" onClick={() => void run(async () => {
-              try { await charactersApi.removePortrait(worldId, c.id); onSaved() } catch (err) { notify(errorText(err), 'error') }
-            })}>{t('cf.removePortrait')}</button>}
-          </fieldset>
           <fieldset>
             <legend>{t('cf.factions')}</legend>
             {memberships.map((m) => (

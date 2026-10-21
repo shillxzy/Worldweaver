@@ -6,8 +6,10 @@ import { ApiError } from '../api/client'
 import type { Book, BookStatus, ManuscriptFormat, World } from '../api/types'
 import { worldsApi } from '../api/worlds'
 import { ACCENTS } from '../data/projects'
-import { useAsync, useBusy } from '../hooks'
+import { errorText, useAsync, useBusy } from '../hooks'
 import { useApp } from '../settings-context'
+import CoverArt from './CoverArt'
+import { CropUpload } from './ImageCropper'
 import { FieldError, Modal } from './Ui'
 
 const STATUSES: BookStatus[] = ['idea', 'drafting', 'revising', 'finished']
@@ -15,7 +17,10 @@ const FORMATS: ManuscriptFormat[] = ['novel', 'novella', 'short_story', 'screenp
 
 /** Create or edit a book. A new book goes into an existing world or creates a new one. */
 export default function BookForm({ book, onClose, onSaved }: { book?: Book; onClose: () => void; onSaved: (b: Book) => void }) {
-  const { t } = useApp()
+  const { t, notify, refreshBooks } = useApp()
+  const [current, setCurrent] = useState(book)
+  const [pendingCover, setPendingCover] = useState<File | null>(null)
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null)
   const worlds = useAsync<World[]>((signal) => worldsApi.list(signal), [])
   const [form, setForm] = useState(() => ({
     title: book?.title ?? '', genre: book?.genre ?? '', description: book?.description ?? '',
@@ -40,7 +45,11 @@ export default function BookForm({ book, onClose, onSaved }: { book?: Book; onCl
         else data.world = Number(form.world)
       }
       try {
-        onSaved(book ? await booksApi.update(book.id, data) : await booksApi.create(data))
+        let saved = book ? await booksApi.update(book.id, data) : await booksApi.create(data)
+        if (!book && pendingCover) {
+          try { saved = await booksApi.uploadCover(saved.id, pendingCover) } catch (err) { notify(errorText(err), 'error') }
+        }
+        onSaved(saved)
       } catch (err) {
         setError(err instanceof ApiError ? err : new ApiError(0, 'client', String(err)))
       }
@@ -78,6 +87,37 @@ export default function BookForm({ book, onClose, onSaved }: { book?: Book; onCl
             </select>
           </label>
         </div>
+        <fieldset className="cover-field">
+          <legend>{t('bf.cover')}</legend>
+          <div className="cover-preview">
+            {pendingPreview ? <img className="cover-img" src={pendingPreview} alt="" />
+              : <CoverArt p={current ?? { id: 0, title: form.title, accent: form.accent }} />}
+          </div>
+          <div className="cover-acts">
+            <CropUpload aspect={3 / 4} outputWidth={900} onUpload={async (file) => {
+              if (current) {
+                try {
+                  setCurrent(await booksApi.uploadCover(current.id, file))
+                  notify(t('ui.saved'))
+                  void refreshBooks()
+                } catch (err) { notify(errorText(err), 'error') }
+              } else {
+                setPendingCover(file)
+                setPendingPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(file) })
+              }
+            }}>{t('bf.uploadCover')}</CropUpload>
+            {(current?.has_cover || pendingCover) && (
+              <button type="button" className="link" onClick={() => {
+                if (pendingCover) { setPendingCover(null); setPendingPreview(null); return }
+                if (!current) return
+                booksApi.removeCover(current.id)
+                  .then(() => { setCurrent({ ...current, has_cover: false }); void refreshBooks() })
+                  .catch((err) => notify(errorText(err), 'error'))
+              }}>{t('bf.removeCover')}</button>
+            )}
+            <small className="muted">{t('bf.coverHint')}</small>
+          </div>
+        </fieldset>
         <label>{t('ui.color')}
           <div className="swatches">
             {ACCENTS.map((c) => (
