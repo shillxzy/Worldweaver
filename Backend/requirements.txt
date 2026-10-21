@@ -1,0 +1,12 @@
+# Runtime
+Django==5.2.18
+djangorestframework==3.16.1
+drf-spectacular==0.30.0
+django-cors-headers==4.9.0
+django-filter==26.2
+python-docx==1.2.0
+pillow==13.0.0
+psycopg[binary]==3.3.6
+requests==2.34.2
+spylls==0.1.7
+python-dotenv==1.2.4

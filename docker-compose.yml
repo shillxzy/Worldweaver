@@ -1,0 +1,17 @@
+# OPTIONAL: run PostgreSQL in Docker instead of installing it on Windows.
+# Usage:  docker compose up -d   (then set DB_* in Backend/.env to match)
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: worldweaver
+      POSTGRES_USER: worldweaver
+      POSTGRES_PASSWORD: ${WW_DB_PASSWORD:?set WW_DB_PASSWORD in your shell or a .env next to this file}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ww_pgdata:/var/lib/postgresql/data
+
+volumes:
+  ww_pgdata:

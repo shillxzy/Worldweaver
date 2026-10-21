@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Django / local data
+Backend/.env
+Backend/db.sqlite3
+Backend/*.sqlite3
+Backend/private_media/
+Backend/staticfiles/
+*.log
+
+# Spellcheck dictionaries are downloaded separately (see README)
+Backend/dictionaries/*.aff
+Backend/dictionaries/*.dic
+Backend/dictionaries/README_uk_UA.txt
+
+# Node / frontend
+node_modules/
+Frontend/dist/
+Frontend/.env
+Frontend/.env.local
+*.local
+
+# Local models and caches (never commit model weights)
+.ollama/
+*.gguf
+*.safetensors
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local tooling
+.claude/

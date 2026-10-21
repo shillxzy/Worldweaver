@@ -1,0 +1,6625 @@
+openapi: 3.0.3
+info:
+  title: Worldweaver API
+  version: 1.0.0
+  description: Локальний API для письменницького простору Worldweaver.
+paths:
+  /api/v1/ai/status/:
+    get:
+      operationId: ai_status_retrieve
+      tags:
+      - ai
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analysis/:
+    get:
+      operationId: analysis_list
+      parameters:
+      - in: query
+        name: book
+        schema:
+          type: integer
+      - in: query
+        name: chapter
+        schema:
+          type: integer
+      - in: query
+        name: kind
+        schema:
+          type: string
+          enum:
+          - book
+          - book_with_lore
+          - chapter
+          - consistency
+          - fragment
+        description: |-
+          * `consistency` - Детерміновані перевірки світу
+          * `fragment` - Глибокий аналіз фрагмента
+          * `chapter` - Глибокий аналіз розділу
+          * `book` - Глибокий аналіз книги
+          * `book_with_lore` - Книга з урахуванням лору світу
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - cancelled
+          - completed
+          - failed
+          - pending
+          - running
+        description: |-
+          * `pending` - Очікує
+          * `running` - Виконується
+          * `completed` - Завершено
+          * `failed` - Помилка
+          * `cancelled` - Скасовано
+      - in: query
+        name: world
+        schema:
+          type: integer
+      tags:
+      - analysis
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAnalysisJobList'
+          description: ''
+    post:
+      operationId: analysis_create
+      tags:
+      - analysis
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalysisJobRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnalysisJobRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnalysisJobRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisJob'
+          description: ''
+  /api/v1/analysis/{id}/:
+    get:
+      operationId: analysis_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this analysis job.
+        required: true
+      tags:
+      - analysis
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisJob'
+          description: ''
+  /api/v1/analysis/{id}/cancel/:
+    post:
+      operationId: analysis_cancel_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this analysis job.
+        required: true
+      tags:
+      - analysis
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisJob'
+          description: ''
+  /api/v1/analysis/{id}/results/:
+    get:
+      operationId: analysis_results_list
+      parameters:
+      - in: query
+        name: book
+        schema:
+          type: integer
+      - in: query
+        name: chapter
+        schema:
+          type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this analysis job.
+        required: true
+      - in: query
+        name: kind
+        schema:
+          type: string
+          enum:
+          - book
+          - book_with_lore
+          - chapter
+          - consistency
+          - fragment
+        description: |-
+          * `consistency` - Детерміновані перевірки світу
+          * `fragment` - Глибокий аналіз фрагмента
+          * `chapter` - Глибокий аналіз розділу
+          * `book` - Глибокий аналіз книги
+          * `book_with_lore` - Книга з урахуванням лору світу
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - cancelled
+          - completed
+          - failed
+          - pending
+          - running
+        description: |-
+          * `pending` - Очікує
+          * `running` - Виконується
+          * `completed` - Завершено
+          * `failed` - Помилка
+          * `cancelled` - Скасовано
+      - in: query
+        name: world
+        schema:
+          type: integer
+      tags:
+      - analysis
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFindingList'
+          description: ''
+  /api/v1/analysis/findings/:
+    get:
+      operationId: analysis_findings_list
+      description: Author decisions on findings. Findings never modify the manuscript.
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+          enum:
+          - confirmed
+          - insufficient_data
+          - potential
+          - unverified
+        description: |-
+          * `confirmed` - Формально підтверджена невідповідність
+          * `potential` - Потенційна семантична суперечність
+          * `insufficient_data` - Недостатньо даних
+          * `unverified` - Неперевірене припущення моделі
+      - in: query
+        name: chapter
+        schema:
+          type: integer
+      - in: query
+        name: decision
+        schema:
+          type: string
+          enum:
+          - accepted
+          - ignored
+          - new
+          - rejected
+        description: |-
+          * `new` - Нове
+          * `accepted` - Прийняте
+          * `rejected` - Відхилене
+          * `ignored` - Проігнороване
+      - in: query
+        name: job
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: severity
+        schema:
+          type: string
+          enum:
+          - error
+          - info
+          - warning
+        description: |-
+          * `info` - Інформація
+          * `warning` - Попередження
+          * `error` - Помилка
+      - in: query
+        name: source
+        schema:
+          type: string
+          enum:
+          - ai
+          - rules
+          - text
+        description: |-
+          * `rules` - Детерміновані правила
+          * `text` - Текстові евристики
+          * `ai` - Локальна модель
+      - in: query
+        name: world
+        schema:
+          type: integer
+      tags:
+      - analysis
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFindingList'
+          description: ''
+  /api/v1/analysis/findings/{id}/:
+    get:
+      operationId: analysis_findings_retrieve
+      description: Author decisions on findings. Findings never modify the manuscript.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this finding.
+        required: true
+      tags:
+      - analysis
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Finding'
+          description: ''
+    patch:
+      operationId: analysis_findings_partial_update
+      description: Author decisions on findings. Findings never modify the manuscript.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this finding.
+        required: true
+      tags:
+      - analysis
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFindingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFindingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFindingRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Finding'
+          description: ''
+  /api/v1/analysis/findings/{id}/explain/:
+    post:
+      operationId: analysis_findings_explain_create
+      description: Author decisions on findings. Findings never modify the manuscript.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this finding.
+        required: true
+      tags:
+      - analysis
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Explanation'
+          description: ''
+  /api/v1/analysis/quick-check/:
+    post:
+      operationId: analysis_quick_check_create
+      description: 'Mode A: cheap, LLM-free checks of the fragment being edited.'
+      tags:
+      - analysis
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuickCheckRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/QuickCheckRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/QuickCheckRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/csrf/:
+    get:
+      operationId: auth_csrf_retrieve
+      description: Sets the ``csrftoken`` cookie so the SPA can send ``X-CSRFToken``.
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfResponse'
+          description: ''
+  /api/v1/auth/login/:
+    post:
+      operationId: auth_login_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: auth_me_partial_update
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    delete:
+      operationId: auth_me_destroy
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/password/:
+    post:
+      operationId: auth_password_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/register/:
+    post:
+      operationId: auth_register_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/boards/:
+    get:
+      operationId: boards_list
+      parameters:
+      - in: query
+        name: book
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: world
+        schema:
+          type: integer
+      tags:
+      - boards
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBoardList'
+          description: ''
+    post:
+      operationId: boards_create
+      tags:
+      - boards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BoardRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BoardRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+          description: ''
+  /api/v1/boards/{board_pk}/connections/:
+    get:
+      operationId: boards_connections_list
+      parameters:
+      - in: path
+        name: board_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - boards
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BoardConnection'
+          description: ''
+    post:
+      operationId: boards_connections_create
+      parameters:
+      - in: path
+        name: board_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - boards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardConnectionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BoardConnectionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BoardConnectionRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardConnection'
+          description: ''
+  /api/v1/boards/{board_pk}/connections/{id}/:
+    get:
+      operationId: boards_connections_retrieve
+      parameters:
+      - in: path
+        name: board_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this board connection.
+        required: true
+      tags:
+      - boards
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardConnection'
+          description: ''
+    patch:
+      operationId: boards_connections_partial_update
+      parameters:
+      - in: path
+        name: board_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this board connection.
+        required: true
+      tags:
+      - boards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBoardConnectionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBoardConnectionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBoardConnectionRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardConnection'
+          description: ''
+    delete:
+      operationId: boards_connections_destroy
+      parameters:
+      - in: path
+        name: board_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this board connection.
+        required: true
+      tags:
+      - boards
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/boards/{board_pk}/items/:
+    get:
+      operationId: boards_items_list
+      parameters:
+      - in: path
+        name: board_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - boards
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BoardItem'
+          description: ''
+    post:
+      operationId: boards_items_create
+      parameters:
+      - in: path
+        name: board_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - boards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BoardItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BoardItemRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardItem'
+          description: ''
+  /api/v1/boards/{board_pk}/items/{id}/:
+    get:
+      operationId: boards_items_retrieve
+      parameters:
+      - in: path
+        name: board_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this board item.
+        required: true
+      tags:
+      - boards
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardItem'
+          description: ''
+    put:
+      operationId: boards_items_update
+      parameters:
+      - in: path
+        name: board_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this board item.
+        required: true
+      tags:
+      - boards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BoardItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BoardItemRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardItem'
+          description: ''
+    patch:
+      operationId: boards_items_partial_update
+      parameters:
+      - in: path
+        name: board_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this board item.
+        required: true
+      tags:
+      - boards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBoardItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBoardItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBoardItemRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardItem'
+          description: ''
+    delete:
+      operationId: boards_items_destroy
+      parameters:
+      - in: path
+        name: board_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this board item.
+        required: true
+      tags:
+      - boards
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/boards/{id}/:
+    get:
+      operationId: boards_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this board.
+        required: true
+      tags:
+      - boards
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+          description: ''
+    put:
+      operationId: boards_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this board.
+        required: true
+      tags:
+      - boards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BoardRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BoardRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+          description: ''
+    patch:
+      operationId: boards_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this board.
+        required: true
+      tags:
+      - boards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBoardRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBoardRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBoardRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+          description: ''
+    delete:
+      operationId: boards_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this board.
+        required: true
+      tags:
+      - boards
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/boards/{id}/layout/:
+    post:
+      operationId: boards_layout_create
+      description: Persist positions / ordering / parents of many items in one transaction.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this board.
+        required: true
+      tags:
+      - boards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LayoutRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LayoutRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LayoutRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+          description: ''
+  /api/v1/books/:
+    get:
+      operationId: books_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - drafting
+          - finished
+          - idea
+          - revising
+        description: |-
+          * `idea` - Ідея
+          * `drafting` - Чернетка
+          * `revising` - Редагування
+          * `finished` - Завершено
+      - in: query
+        name: world
+        schema:
+          type: integer
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBookList'
+          description: ''
+    post:
+      operationId: books_create
+      tags:
+      - books
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+          description: ''
+  /api/v1/books/{book_pk}/chapters/:
+    get:
+      operationId: books_chapters_list
+      parameters:
+      - in: path
+        name: book_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - done
+          - draft
+          - revision
+        description: |-
+          * `draft` - Чернетка
+          * `revision` - Редагування
+          * `done` - Готово
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedChapterListList'
+          description: ''
+    post:
+      operationId: books_chapters_create
+      parameters:
+      - in: path
+        name: book_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - books
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChapterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChapterRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+          description: ''
+  /api/v1/books/{book_pk}/chapters/{id}/:
+    get:
+      operationId: books_chapters_retrieve
+      parameters:
+      - in: path
+        name: book_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this chapter.
+        required: true
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+          description: ''
+    put:
+      operationId: books_chapters_update
+      parameters:
+      - in: path
+        name: book_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this chapter.
+        required: true
+      tags:
+      - books
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChapterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChapterRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+          description: ''
+    patch:
+      operationId: books_chapters_partial_update
+      parameters:
+      - in: path
+        name: book_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this chapter.
+        required: true
+      tags:
+      - books
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedChapterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedChapterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedChapterRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+          description: ''
+    delete:
+      operationId: books_chapters_destroy
+      parameters:
+      - in: path
+        name: book_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this chapter.
+        required: true
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/books/{book_pk}/chapters/{id}/export/:
+    get:
+      operationId: books_chapters_export_retrieve
+      parameters:
+      - in: path
+        name: book_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this chapter.
+        required: true
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/books/{book_pk}/chapters/{id}/versions/:
+    get:
+      operationId: books_chapters_versions_list
+      parameters:
+      - in: path
+        name: book_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this chapter.
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - done
+          - draft
+          - revision
+        description: |-
+          * `draft` - Чернетка
+          * `revision` - Редагування
+          * `done` - Готово
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedChapterVersionList'
+          description: ''
+  /api/v1/books/{book_pk}/chapters/{id}/versions/{version_pk}/:
+    get:
+      operationId: books_chapters_versions_retrieve
+      parameters:
+      - in: path
+        name: book_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this chapter.
+        required: true
+      - in: path
+        name: version_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChapterVersionDetail'
+          description: ''
+  /api/v1/books/{book_pk}/chapters/{id}/versions/{version_pk}/restore/:
+    post:
+      operationId: books_chapters_versions_restore_create
+      parameters:
+      - in: path
+        name: book_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this chapter.
+        required: true
+      - in: path
+        name: version_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+          description: ''
+  /api/v1/books/{book_pk}/chapters/reorder/:
+    post:
+      operationId: books_chapters_reorder_create
+      parameters:
+      - in: path
+        name: book_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - done
+          - draft
+          - revision
+        description: |-
+          * `draft` - Чернетка
+          * `revision` - Редагування
+          * `done` - Готово
+      tags:
+      - books
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedChapterListList'
+          description: ''
+  /api/v1/books/{id}/:
+    get:
+      operationId: books_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this book.
+        required: true
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+          description: ''
+    put:
+      operationId: books_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this book.
+        required: true
+      tags:
+      - books
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+          description: ''
+    patch:
+      operationId: books_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this book.
+        required: true
+      tags:
+      - books
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBookRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBookRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBookRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+          description: ''
+    delete:
+      operationId: books_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this book.
+        required: true
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/books/{id}/export/:
+    get:
+      operationId: books_export_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this book.
+        required: true
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/books/{id}/manuscript/:
+    get:
+      operationId: books_manuscript_retrieve
+      description: Plain-text manuscript (used by the analysis pipeline and for preview).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this book.
+        required: true
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/import/docx/:
+    post:
+      operationId: import_docx_create
+      tags:
+      - import
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocxImportRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChapterList'
+          description: ''
+  /api/v1/language/dictionary/:
+    get:
+      operationId: language_dictionary_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - language
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DictionaryWord'
+          description: ''
+    post:
+      operationId: language_dictionary_create
+      tags:
+      - language
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DictionaryWordRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DictionaryWordRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DictionaryWordRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DictionaryWord'
+          description: ''
+  /api/v1/language/dictionary/{id}/:
+    delete:
+      operationId: language_dictionary_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this dictionary word.
+        required: true
+      tags:
+      - language
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/language/spellcheck/:
+    post:
+      operationId: language_spellcheck_create
+      tags:
+      - language
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpellcheckRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SpellcheckRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SpellcheckRequestRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/language/status/:
+    get:
+      operationId: language_status_retrieve
+      tags:
+      - language
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/language/suggest/:
+    get:
+      operationId: language_suggest_retrieve
+      tags:
+      - language
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/search/:
+    get:
+      operationId: search_retrieve
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        required: true
+      tags:
+      - search
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/settings/:
+    get:
+      operationId: settings_retrieve
+      tags:
+      - settings
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+          description: ''
+    patch:
+      operationId: settings_partial_update
+      tags:
+      - settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSettingsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSettingsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSettingsRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+          description: ''
+  /api/v1/worlds/:
+    get:
+      operationId: worlds_list
+      parameters:
+      - in: query
+        name: genre
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWorldList'
+          description: ''
+    post:
+      operationId: worlds_create
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorldRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WorldRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WorldRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/World'
+          description: ''
+  /api/v1/worlds/{id}/:
+    get:
+      operationId: worlds_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this world.
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/World'
+          description: ''
+    put:
+      operationId: worlds_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this world.
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorldRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WorldRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WorldRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/World'
+          description: ''
+    patch:
+      operationId: worlds_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this world.
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWorldRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWorldRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWorldRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/World'
+          description: ''
+    delete:
+      operationId: worlds_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this world.
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/characters/:
+    get:
+      operationId: worlds_characters_list
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - alive
+          - dead
+          - missing
+          - other
+          - unknown
+        description: |-
+          * `alive` - Живий
+          * `dead` - Загинув
+          * `missing` - Зниклий
+          * `unknown` - Невідомо
+          * `other` - Інше
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCharacterList'
+          description: ''
+    post:
+      operationId: worlds_characters_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CharacterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CharacterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CharacterRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Character'
+          description: ''
+  /api/v1/worlds/{world_pk}/characters/{id}/:
+    get:
+      operationId: worlds_characters_retrieve
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this character.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Character'
+          description: ''
+    put:
+      operationId: worlds_characters_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this character.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CharacterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CharacterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CharacterRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Character'
+          description: ''
+    patch:
+      operationId: worlds_characters_partial_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this character.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCharacterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCharacterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCharacterRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Character'
+          description: ''
+    delete:
+      operationId: worlds_characters_destroy
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this character.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/characters/{id}/portrait/:
+    get:
+      operationId: worlds_characters_portrait_retrieve
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this character.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Character'
+          description: ''
+    post:
+      operationId: worlds_characters_portrait_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this character.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                portrait:
+                  type: string
+                  format: binary
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Character'
+          description: ''
+    delete:
+      operationId: worlds_characters_portrait_destroy
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this character.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/chronology/:
+    get:
+      operationId: worlds_chronology_retrieve
+      description: Events in a consistent temporal order (topological sort of the
+        dependency DAG).
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/worlds/{world_pk}/consistency/:
+    post:
+      operationId: worlds_consistency_create
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisJob'
+          description: ''
+  /api/v1/worlds/{world_pk}/dependencies/:
+    get:
+      operationId: worlds_dependencies_list
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDependencyList'
+          description: ''
+    post:
+      operationId: worlds_dependencies_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DependencyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DependencyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DependencyRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dependency'
+          description: ''
+  /api/v1/worlds/{world_pk}/dependencies/{id}/:
+    get:
+      operationId: worlds_dependencies_retrieve
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this timeline dependency.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dependency'
+          description: ''
+    delete:
+      operationId: worlds_dependencies_destroy
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this timeline dependency.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/factions/:
+    get:
+      operationId: worlds_factions_list
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFactionList'
+          description: ''
+    post:
+      operationId: worlds_factions_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FactionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FactionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FactionRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faction'
+          description: ''
+  /api/v1/worlds/{world_pk}/factions/{id}/:
+    get:
+      operationId: worlds_factions_retrieve
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this faction.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faction'
+          description: ''
+    put:
+      operationId: worlds_factions_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this faction.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FactionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FactionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FactionRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faction'
+          description: ''
+    patch:
+      operationId: worlds_factions_partial_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this faction.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFactionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFactionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFactionRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faction'
+          description: ''
+    delete:
+      operationId: worlds_factions_destroy
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this faction.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/lore/:
+    get:
+      operationId: worlds_lore_list
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+          enum:
+          - creature
+          - culture
+          - custom
+          - geography
+          - history
+          - item
+          - location
+          - magic
+          - religion
+          - rules
+          - technology
+        description: |-
+          * `history` - Історія
+          * `geography` - Географія
+          * `location` - Локація
+          * `magic` - Магія
+          * `culture` - Культура
+          * `technology` - Технології
+          * `religion` - Релігія
+          * `rules` - Правила
+          * `item` - Предмет
+          * `creature` - Істота
+          * `custom` - Власна категорія
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLoreEntryList'
+          description: ''
+    post:
+      operationId: worlds_lore_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoreEntryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoreEntryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoreEntryRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoreEntry'
+          description: ''
+  /api/v1/worlds/{world_pk}/lore/{id}/:
+    get:
+      operationId: worlds_lore_retrieve
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this lore entry.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoreEntry'
+          description: ''
+    put:
+      operationId: worlds_lore_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this lore entry.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoreEntryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoreEntryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoreEntryRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoreEntry'
+          description: ''
+    patch:
+      operationId: worlds_lore_partial_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this lore entry.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLoreEntryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedLoreEntryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedLoreEntryRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoreEntry'
+          description: ''
+    delete:
+      operationId: worlds_lore_destroy
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this lore entry.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/memberships/:
+    get:
+      operationId: worlds_memberships_list
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: query
+        name: character
+        schema:
+          type: integer
+      - in: query
+        name: faction
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMembershipList'
+          description: ''
+    post:
+      operationId: worlds_memberships_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MembershipRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MembershipRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MembershipRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Membership'
+          description: ''
+  /api/v1/worlds/{world_pk}/memberships/{id}/:
+    get:
+      operationId: worlds_memberships_retrieve
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this faction membership.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Membership'
+          description: ''
+    put:
+      operationId: worlds_memberships_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this faction membership.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MembershipRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MembershipRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MembershipRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Membership'
+          description: ''
+    patch:
+      operationId: worlds_memberships_partial_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this faction membership.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Membership'
+          description: ''
+    delete:
+      operationId: worlds_memberships_destroy
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this faction membership.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/relationships/:
+    get:
+      operationId: worlds_relationships_list
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: query
+        name: kind
+        schema:
+          type: string
+          enum:
+          - acquaintance
+          - alliance
+          - enmity
+          - family
+          - membership
+          - mentorship
+          - other
+          - subordination
+        description: |-
+          * `alliance` - Союз
+          * `enmity` - Ворожнеча
+          * `family` - Родинний звʼязок
+          * `subordination` - Підпорядкування
+          * `membership` - Членство
+          * `acquaintance` - Знайомство
+          * `mentorship` - Наставництво
+          * `other` - Інше
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRelationshipList'
+          description: ''
+    post:
+      operationId: worlds_relationships_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelationshipRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RelationshipRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RelationshipRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Relationship'
+          description: ''
+  /api/v1/worlds/{world_pk}/relationships/{id}/:
+    get:
+      operationId: worlds_relationships_retrieve
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this relationship.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Relationship'
+          description: ''
+    put:
+      operationId: worlds_relationships_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this relationship.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelationshipRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RelationshipRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RelationshipRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Relationship'
+          description: ''
+    patch:
+      operationId: worlds_relationships_partial_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this relationship.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRelationshipRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRelationshipRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRelationshipRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Relationship'
+          description: ''
+    delete:
+      operationId: worlds_relationships_destroy
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this relationship.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/search/:
+    get:
+      operationId: worlds_search_retrieve
+      description: Full-text-ish search inside one world (names, aliases, tags, content).
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/worlds/{world_pk}/timeline/:
+    get:
+      operationId: worlds_timeline_list
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: precision
+        schema:
+          type: string
+          enum:
+          - approximate
+          - exact
+          - unknown
+        description: |-
+          * `exact` - Точна
+          * `approximate` - Приблизна
+          * `unknown` - Невідома
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTimelineEventList'
+          description: ''
+    post:
+      operationId: worlds_timeline_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimelineEventRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TimelineEventRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TimelineEventRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimelineEvent'
+          description: ''
+  /api/v1/worlds/{world_pk}/timeline/{id}/:
+    get:
+      operationId: worlds_timeline_retrieve
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this timeline event.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimelineEvent'
+          description: ''
+    put:
+      operationId: worlds_timeline_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this timeline event.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimelineEventRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TimelineEventRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TimelineEventRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimelineEvent'
+          description: ''
+    patch:
+      operationId: worlds_timeline_partial_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this timeline event.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTimelineEventRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTimelineEventRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTimelineEventRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimelineEvent'
+          description: ''
+    delete:
+      operationId: worlds_timeline_destroy
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this timeline event.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+components:
+  schemas:
+    AnalysisJob:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        world:
+          type: integer
+        book:
+          type: integer
+          nullable: true
+        chapter:
+          type: integer
+          nullable: true
+        kind:
+          $ref: '#/components/schemas/AnalysisJobKindEnum'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/JobStatusEnum'
+          readOnly: true
+        use_ai:
+          type: boolean
+        params:
+          readOnly: true
+        progress:
+          type: number
+          format: double
+          readOnly: true
+        progress_message:
+          type: string
+          readOnly: true
+        cancel_requested:
+          type: boolean
+          readOnly: true
+        error_code:
+          type: string
+          readOnly: true
+        error_message:
+          type: string
+          readOnly: true
+          description: Ніколи не містить тексту рукопису.
+        model_name:
+          type: string
+          readOnly: true
+        attempts:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        stats:
+          readOnly: true
+        findings_count:
+          type: integer
+          readOnly: true
+          default: 0
+      required:
+      - attempts
+      - cancel_requested
+      - created_at
+      - error_code
+      - error_message
+      - findings_count
+      - finished_at
+      - id
+      - kind
+      - model_name
+      - params
+      - progress
+      - progress_message
+      - started_at
+      - stats
+      - status
+    AnalysisJobKindEnum:
+      enum:
+      - consistency
+      - fragment
+      - chapter
+      - book
+      - book_with_lore
+      type: string
+      description: |-
+        * `consistency` - Детерміновані перевірки світу
+        * `fragment` - Глибокий аналіз фрагмента
+        * `chapter` - Глибокий аналіз розділу
+        * `book` - Глибокий аналіз книги
+        * `book_with_lore` - Книга з урахуванням лору світу
+    AnalysisJobRequest:
+      type: object
+      properties:
+        world:
+          type: integer
+        book:
+          type: integer
+          nullable: true
+        chapter:
+          type: integer
+          nullable: true
+        kind:
+          $ref: '#/components/schemas/AnalysisJobKindEnum'
+        use_ai:
+          type: boolean
+        text:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 50000
+      required:
+      - kind
+    Board:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        book:
+          type: integer
+          nullable: true
+        world:
+          type: integer
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoardItem'
+          readOnly: true
+        connections:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoardConnection'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - connections
+      - created_at
+      - id
+      - items
+      - title
+      - updated_at
+    BoardConnection:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        board:
+          type: integer
+          readOnly: true
+        source:
+          type: integer
+        target:
+          type: integer
+        label:
+          type: string
+          maxLength: 200
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - board
+      - created_at
+      - id
+      - source
+      - target
+    BoardConnectionRequest:
+      type: object
+      properties:
+        source:
+          type: integer
+        target:
+          type: integer
+        label:
+          type: string
+          maxLength: 200
+      required:
+      - source
+      - target
+    BoardItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        board:
+          type: integer
+          readOnly: true
+        parent:
+          type: integer
+          nullable: true
+        kind:
+          $ref: '#/components/schemas/BoardItemKindEnum'
+        text:
+          type: string
+          maxLength: 10000
+        color:
+          oneOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+            maxLength: 7
+          - type: string
+            maxLength: 0
+        x:
+          type: number
+          format: double
+        y:
+          type: number
+          format: double
+        width:
+          type: number
+          format: double
+        height:
+          type: number
+          format: double
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        metadata: {}
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - board
+      - created_at
+      - id
+      - updated_at
+    BoardItemKindEnum:
+      enum:
+      - column
+      - note
+      - idea
+      - draft
+      - reference
+      type: string
+      description: |-
+        * `column` - Колонка
+        * `note` - Нотатка
+        * `idea` - Ідея
+        * `draft` - Чернетка
+        * `reference` - Посилання на сутність
+    BoardItemRequest:
+      type: object
+      properties:
+        parent:
+          type: integer
+          nullable: true
+        kind:
+          $ref: '#/components/schemas/BoardItemKindEnum'
+        text:
+          type: string
+          maxLength: 10000
+        color:
+          oneOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+            maxLength: 7
+          - type: string
+            maxLength: 0
+        x:
+          type: number
+          format: double
+        y:
+          type: number
+          format: double
+        width:
+          type: number
+          format: double
+        height:
+          type: number
+          format: double
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        metadata: {}
+    BoardRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        book:
+          type: integer
+          nullable: true
+        world:
+          type: integer
+          nullable: true
+        with_default_columns:
+          type: boolean
+          writeOnly: true
+          default: false
+      required:
+      - title
+    Book:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        world:
+          type: integer
+        world_name:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        genre:
+          type: string
+          maxLength: 120
+        status:
+          $ref: '#/components/schemas/BookStatusEnum'
+        manuscript_format:
+          $ref: '#/components/schemas/ManuscriptFormatEnum'
+        accent:
+          type: string
+          pattern: ^#[0-9a-fA-F]{6}$
+          maxLength: 7
+        chapters_count:
+          type: integer
+          readOnly: true
+          default: 0
+        done_chapters:
+          type: integer
+          readOnly: true
+          default: 0
+        word_count:
+          type: integer
+          readOnly: true
+          default: 0
+        progress:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - chapters_count
+      - created_at
+      - done_chapters
+      - id
+      - progress
+      - title
+      - updated_at
+      - word_count
+      - world_name
+    BookRequest:
+      type: object
+      properties:
+        world:
+          type: integer
+        new_world_name:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 200
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        genre:
+          type: string
+          maxLength: 120
+        status:
+          $ref: '#/components/schemas/BookStatusEnum'
+        manuscript_format:
+          $ref: '#/components/schemas/ManuscriptFormatEnum'
+        accent:
+          type: string
+          minLength: 1
+          pattern: ^#[0-9a-fA-F]{6}$
+          maxLength: 7
+      required:
+      - title
+    BookStatusEnum:
+      enum:
+      - idea
+      - drafting
+      - revising
+      - finished
+      type: string
+      description: |-
+        * `idea` - Ідея
+        * `drafting` - Чернетка
+        * `revising` - Редагування
+        * `finished` - Завершено
+    Chapter:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        book:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        order:
+          type: integer
+          readOnly: true
+        word_count:
+          type: integer
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/ChapterStatusEnum'
+        revision:
+          type: integer
+          readOnly: true
+          description: Зростає з кожним збереженням вмісту.
+        story_time_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        story_time_label:
+          type: string
+          maxLength: 120
+        is_flashback:
+          type: boolean
+        narrator_unreliable:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        content: {}
+        plain_text:
+          type: string
+          readOnly: true
+      required:
+      - book
+      - created_at
+      - id
+      - order
+      - plain_text
+      - revision
+      - title
+      - updated_at
+      - word_count
+    ChapterList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        book:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        order:
+          type: integer
+          readOnly: true
+        word_count:
+          type: integer
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/ChapterStatusEnum'
+        revision:
+          type: integer
+          readOnly: true
+          description: Зростає з кожним збереженням вмісту.
+        story_time_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        story_time_label:
+          type: string
+          maxLength: 120
+        is_flashback:
+          type: boolean
+        narrator_unreliable:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - book
+      - created_at
+      - id
+      - order
+      - revision
+      - title
+      - updated_at
+      - word_count
+    ChapterRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/ChapterStatusEnum'
+        story_time_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        story_time_label:
+          type: string
+          maxLength: 120
+        is_flashback:
+          type: boolean
+        narrator_unreliable:
+          type: boolean
+        content: {}
+        base_revision:
+          type: integer
+          minimum: 1
+          writeOnly: true
+        snapshot:
+          type: boolean
+          writeOnly: true
+          default: false
+      required:
+      - title
+    ChapterStatusEnum:
+      enum:
+      - draft
+      - revision
+      - done
+      type: string
+      description: |-
+        * `draft` - Чернетка
+        * `revision` - Редагування
+        * `done` - Готово
+    ChapterVersion:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        chapter:
+          type: integer
+        revision:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        title:
+          type: string
+          maxLength: 200
+        word_count:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        reason:
+          $ref: '#/components/schemas/ReasonEnum'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - chapter
+      - created_at
+      - id
+      - revision
+      - title
+    ChapterVersionDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        chapter:
+          type: integer
+        revision:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        title:
+          type: string
+          maxLength: 200
+        word_count:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        reason:
+          $ref: '#/components/schemas/ReasonEnum'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        content: {}
+        plain_text:
+          type: string
+      required:
+      - chapter
+      - content
+      - created_at
+      - id
+      - revision
+      - title
+    Character:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        aliases:
+          type: array
+          items:
+            type: string
+            maxLength: 120
+          maxItems: 20
+        summary:
+          type: string
+          maxLength: 500
+        biography:
+          type: string
+        personality:
+          type: string
+        appearance:
+          type: string
+        goals:
+          type: string
+        abilities:
+          type: string
+        age_text:
+          type: string
+          description: Вік у довільній формі, якщо відомий.
+          maxLength: 60
+        birth_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        birth_label:
+          type: string
+          maxLength: 120
+        birth_precision:
+          $ref: '#/components/schemas/PrecisionEnum'
+        death_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        death_label:
+          type: string
+          maxLength: 120
+        death_precision:
+          $ref: '#/components/schemas/PrecisionEnum'
+        status:
+          $ref: '#/components/schemas/CharacterStatusEnum'
+        facts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Fact'
+        notes:
+          type: string
+        has_portrait:
+          type: boolean
+          readOnly: true
+        memberships:
+          type: array
+          items:
+            $ref: '#/components/schemas/MembershipBrief'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - has_portrait
+      - id
+      - memberships
+      - name
+      - updated_at
+    CharacterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        aliases:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 120
+          maxItems: 20
+        summary:
+          type: string
+          maxLength: 500
+        biography:
+          type: string
+        personality:
+          type: string
+        appearance:
+          type: string
+        goals:
+          type: string
+        abilities:
+          type: string
+        age_text:
+          type: string
+          description: Вік у довільній формі, якщо відомий.
+          maxLength: 60
+        birth_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        birth_label:
+          type: string
+          maxLength: 120
+        birth_precision:
+          $ref: '#/components/schemas/PrecisionEnum'
+        death_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        death_label:
+          type: string
+          maxLength: 120
+        death_precision:
+          $ref: '#/components/schemas/PrecisionEnum'
+        status:
+          $ref: '#/components/schemas/CharacterStatusEnum'
+        facts:
+          type: array
+          items:
+            $ref: '#/components/schemas/FactRequest'
+        notes:
+          type: string
+      required:
+      - name
+    CharacterStatusEnum:
+      enum:
+      - alive
+      - dead
+      - missing
+      - unknown
+      - other
+      type: string
+      description: |-
+        * `alive` - Живий
+        * `dead` - Загинув
+        * `missing` - Зниклий
+        * `unknown` - Невідомо
+        * `other` - Інше
+    CsrfResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+      - ok
+    DecisionEnum:
+      enum:
+      - new
+      - accepted
+      - rejected
+      - ignored
+      type: string
+      description: |-
+        * `new` - Нове
+        * `accepted` - Прийняте
+        * `rejected` - Відхилене
+        * `ignored` - Проігнороване
+    Dependency:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        before:
+          type: integer
+        before_title:
+          type: string
+          readOnly: true
+        after:
+          type: integer
+        after_title:
+          type: string
+          readOnly: true
+        kind:
+          $ref: '#/components/schemas/DependencyKindEnum'
+        min_gap:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        description:
+          type: string
+          maxLength: 300
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - after
+      - after_title
+      - before
+      - before_title
+      - created_at
+      - id
+    DependencyKindEnum:
+      enum:
+      - before
+      - causes
+      type: string
+      description: |-
+        * `before` - Відбувається раніше
+        * `causes` - Спричиняє
+    DependencyRequest:
+      type: object
+      properties:
+        before:
+          type: integer
+        after:
+          type: integer
+        kind:
+          $ref: '#/components/schemas/DependencyKindEnum'
+        min_gap:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        description:
+          type: string
+          maxLength: 300
+      required:
+      - after
+      - before
+    DictionaryWord:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        word:
+          type: string
+          maxLength: 80
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - word
+    DictionaryWordRequest:
+      type: object
+      properties:
+        word:
+          type: string
+          minLength: 1
+          maxLength: 80
+      required:
+      - word
+    DocxImportRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+        book:
+          type: integer
+          minimum: 1
+        mode:
+          allOf:
+          - $ref: '#/components/schemas/ModeEnum'
+          default: new_chapter
+        chapter:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+          maxLength: 200
+      required:
+      - book
+      - file
+    EntityRef:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/TypeEnum'
+        id:
+          type: integer
+          minimum: 1
+      required:
+      - id
+      - type
+    EntityRefRequest:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/TypeEnum'
+        id:
+          type: integer
+          minimum: 1
+      required:
+      - id
+      - type
+    Evidence:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        source_type:
+          $ref: '#/components/schemas/SourceTypeEnum'
+        source_id:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        source_label:
+          type: string
+          maxLength: 200
+        quote:
+          type: string
+        position_start:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        position_end:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        verified:
+          type: boolean
+      required:
+      - id
+      - source_id
+      - source_type
+    EvidenceRequest:
+      type: object
+      properties:
+        source_type:
+          $ref: '#/components/schemas/SourceTypeEnum'
+        source_id:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        source_label:
+          type: string
+          maxLength: 200
+        quote:
+          type: string
+        position_start:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        position_end:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        verified:
+          type: boolean
+      required:
+      - source_id
+      - source_type
+    Explanation:
+      type: object
+      properties:
+        explanation:
+          type: string
+      required:
+      - explanation
+    Fact:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 120
+        value:
+          type: string
+          maxLength: 1000
+      required:
+      - label
+      - value
+    FactRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 120
+        value:
+          type: string
+          maxLength: 1000
+      required:
+      - label
+      - value
+    Faction:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        goals:
+          type: string
+        ideology:
+          type: string
+        color:
+          type: string
+          pattern: ^#[0-9a-fA-F]{6}$
+          maxLength: 7
+        emblem:
+          type: string
+          description: Короткий символ (емодзі або літера).
+          maxLength: 8
+        members_count:
+          type: integer
+          readOnly: true
+          default: 0
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - members_count
+      - name
+      - updated_at
+    FactionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        goals:
+          type: string
+        ideology:
+          type: string
+        color:
+          type: string
+          minLength: 1
+          pattern: ^#[0-9a-fA-F]{6}$
+          maxLength: 7
+        emblem:
+          type: string
+          description: Короткий символ (емодзі або літера).
+          maxLength: 8
+      required:
+      - name
+    Finding:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        job:
+          type: integer
+          readOnly: true
+          nullable: true
+        world:
+          type: integer
+          readOnly: true
+        chapter:
+          type: integer
+          readOnly: true
+          nullable: true
+        chapter_title:
+          type: string
+          readOnly: true
+        book:
+          type: integer
+          readOnly: true
+        rule:
+          type: string
+          readOnly: true
+          description: Код правила або тип проблеми, напр. 'event_before_birth'.
+        category:
+          allOf:
+          - $ref: '#/components/schemas/FindingCategoryEnum'
+          readOnly: true
+        severity:
+          allOf:
+          - $ref: '#/components/schemas/SeverityEnum'
+          readOnly: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/SourceEnum'
+          readOnly: true
+        confidence:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        summary:
+          type: string
+          readOnly: true
+        explanation:
+          type: string
+          readOnly: true
+        manuscript_quote:
+          type: string
+          readOnly: true
+        position_start:
+          type: integer
+          readOnly: true
+          nullable: true
+        position_end:
+          type: integer
+          readOnly: true
+          nullable: true
+        quote_verified:
+          type: boolean
+          readOnly: true
+        decision:
+          $ref: '#/components/schemas/DecisionEnum'
+        decision_note:
+          type: string
+          maxLength: 500
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/Evidence'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - book
+      - category
+      - chapter
+      - chapter_title
+      - confidence
+      - created_at
+      - evidence
+      - explanation
+      - id
+      - job
+      - manuscript_quote
+      - position_end
+      - position_start
+      - quote_verified
+      - rule
+      - severity
+      - source
+      - summary
+      - world
+    FindingCategoryEnum:
+      enum:
+      - confirmed
+      - potential
+      - insufficient_data
+      - unverified
+      type: string
+      description: |-
+        * `confirmed` - Формально підтверджена невідповідність
+        * `potential` - Потенційна семантична суперечність
+        * `insufficient_data` - Недостатньо даних
+        * `unverified` - Неперевірене припущення моделі
+    JobStatusEnum:
+      enum:
+      - pending
+      - running
+      - completed
+      - failed
+      - cancelled
+      type: string
+      description: |-
+        * `pending` - Очікує
+        * `running` - Виконується
+        * `completed` - Завершено
+        * `failed` - Помилка
+        * `cancelled` - Скасовано
+    LanguageEnum:
+      enum:
+      - uk
+      - en
+      type: string
+      description: |-
+        * `uk` - Українська
+        * `en` - English
+    LayoutItemRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        x:
+          type: number
+          format: double
+        y:
+          type: number
+          format: double
+        order:
+          type: integer
+        parent:
+          type: integer
+          minimum: 1
+          nullable: true
+      required:
+      - id
+    LayoutRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LayoutItemRequest'
+      required:
+      - items
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - email
+      - password
+    LoreEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        content:
+          type: string
+        category:
+          $ref: '#/components/schemas/LoreEntryCategoryEnum'
+        custom_category:
+          type: string
+          maxLength: 60
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 60
+          maxItems: 30
+        related_characters:
+          type: array
+          items:
+            type: integer
+        related_factions:
+          type: array
+          items:
+            type: integer
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - title
+      - updated_at
+    LoreEntryCategoryEnum:
+      enum:
+      - history
+      - geography
+      - location
+      - magic
+      - culture
+      - technology
+      - religion
+      - rules
+      - item
+      - creature
+      - custom
+      type: string
+      description: |-
+        * `history` - Історія
+        * `geography` - Географія
+        * `location` - Локація
+        * `magic` - Магія
+        * `culture` - Культура
+        * `technology` - Технології
+        * `religion` - Релігія
+        * `rules` - Правила
+        * `item` - Предмет
+        * `creature` - Істота
+        * `custom` - Власна категорія
+    LoreEntryRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        content:
+          type: string
+        category:
+          $ref: '#/components/schemas/LoreEntryCategoryEnum'
+        custom_category:
+          type: string
+          maxLength: 60
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 60
+          maxItems: 30
+        related_characters:
+          type: array
+          items:
+            type: integer
+        related_factions:
+          type: array
+          items:
+            type: integer
+      required:
+      - title
+    ManuscriptFormatEnum:
+      enum:
+      - novel
+      - novella
+      - short_story
+      - screenplay
+      - other
+      type: string
+      description: |-
+        * `novel` - Роман
+        * `novella` - Повість
+        * `short_story` - Оповідання
+        * `screenplay` - Сценарій
+        * `other` - Інше
+    Membership:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        character:
+          type: integer
+        character_name:
+          type: string
+          readOnly: true
+        faction:
+          type: integer
+        faction_name:
+          type: string
+          readOnly: true
+        role:
+          type: string
+          maxLength: 120
+        start_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        start_label:
+          type: string
+          maxLength: 120
+        end_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        end_label:
+          type: string
+          maxLength: 120
+        notes:
+          type: string
+      required:
+      - character
+      - character_name
+      - faction
+      - faction_name
+      - id
+    MembershipBrief:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        faction:
+          type: integer
+        faction_name:
+          type: string
+          readOnly: true
+        faction_color:
+          type: string
+          readOnly: true
+        role:
+          type: string
+          maxLength: 120
+        start_label:
+          type: string
+          maxLength: 120
+        end_label:
+          type: string
+          maxLength: 120
+        start_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        end_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+      required:
+      - faction
+      - faction_color
+      - faction_name
+      - id
+    MembershipBriefRequest:
+      type: object
+      properties:
+        faction:
+          type: integer
+        role:
+          type: string
+          maxLength: 120
+        start_label:
+          type: string
+          maxLength: 120
+        end_label:
+          type: string
+          maxLength: 120
+        start_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        end_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+      required:
+      - faction
+    MembershipRequest:
+      type: object
+      properties:
+        character:
+          type: integer
+        faction:
+          type: integer
+        role:
+          type: string
+          maxLength: 120
+        start_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        start_label:
+          type: string
+          maxLength: 120
+        end_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        end_label:
+          type: string
+          maxLength: 120
+        notes:
+          type: string
+      required:
+      - character
+      - faction
+    ModeEnum:
+      enum:
+      - new_chapter
+      - split_headings
+      - replace_chapter
+      type: string
+      description: |-
+        * `new_chapter` - new_chapter
+        * `split_headings` - split_headings
+        * `replace_chapter` - replace_chapter
+    PaginatedAnalysisJobList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalysisJob'
+    PaginatedBoardList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Board'
+    PaginatedBookList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Book'
+    PaginatedChapterListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChapterList'
+    PaginatedChapterVersionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChapterVersion'
+    PaginatedCharacterList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Character'
+    PaginatedDependencyList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Dependency'
+    PaginatedFactionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Faction'
+    PaginatedFindingList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Finding'
+    PaginatedLoreEntryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoreEntry'
+    PaginatedMembershipList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Membership'
+    PaginatedRelationshipList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Relationship'
+    PaginatedTimelineEventList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineEvent'
+    PaginatedWorldList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/World'
+    Participant:
+      type: object
+      properties:
+        character:
+          type: integer
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          default: participant
+        note:
+          type: string
+          default: ''
+          maxLength: 300
+      required:
+      - character
+    ParticipantRequest:
+      type: object
+      properties:
+        character:
+          type: integer
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          default: participant
+        note:
+          type: string
+          default: ''
+          maxLength: 300
+      required:
+      - character
+    PasswordChangeRequest:
+      type: object
+      properties:
+        old_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - new_password
+      - old_password
+    PatchedBoardConnectionRequest:
+      type: object
+      properties:
+        source:
+          type: integer
+        target:
+          type: integer
+        label:
+          type: string
+          maxLength: 200
+    PatchedBoardItemRequest:
+      type: object
+      properties:
+        parent:
+          type: integer
+          nullable: true
+        kind:
+          $ref: '#/components/schemas/BoardItemKindEnum'
+        text:
+          type: string
+          maxLength: 10000
+        color:
+          oneOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+            maxLength: 7
+          - type: string
+            maxLength: 0
+        x:
+          type: number
+          format: double
+        y:
+          type: number
+          format: double
+        width:
+          type: number
+          format: double
+        height:
+          type: number
+          format: double
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        metadata: {}
+    PatchedBoardRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        book:
+          type: integer
+          nullable: true
+        world:
+          type: integer
+          nullable: true
+        with_default_columns:
+          type: boolean
+          writeOnly: true
+          default: false
+    PatchedBookRequest:
+      type: object
+      properties:
+        world:
+          type: integer
+        new_world_name:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 200
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        genre:
+          type: string
+          maxLength: 120
+        status:
+          $ref: '#/components/schemas/BookStatusEnum'
+        manuscript_format:
+          $ref: '#/components/schemas/ManuscriptFormatEnum'
+        accent:
+          type: string
+          minLength: 1
+          pattern: ^#[0-9a-fA-F]{6}$
+          maxLength: 7
+    PatchedChapterRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/ChapterStatusEnum'
+        story_time_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        story_time_label:
+          type: string
+          maxLength: 120
+        is_flashback:
+          type: boolean
+        narrator_unreliable:
+          type: boolean
+        content: {}
+        base_revision:
+          type: integer
+          minimum: 1
+          writeOnly: true
+        snapshot:
+          type: boolean
+          writeOnly: true
+          default: false
+    PatchedCharacterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        aliases:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 120
+          maxItems: 20
+        summary:
+          type: string
+          maxLength: 500
+        biography:
+          type: string
+        personality:
+          type: string
+        appearance:
+          type: string
+        goals:
+          type: string
+        abilities:
+          type: string
+        age_text:
+          type: string
+          description: Вік у довільній формі, якщо відомий.
+          maxLength: 60
+        birth_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        birth_label:
+          type: string
+          maxLength: 120
+        birth_precision:
+          $ref: '#/components/schemas/PrecisionEnum'
+        death_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        death_label:
+          type: string
+          maxLength: 120
+        death_precision:
+          $ref: '#/components/schemas/PrecisionEnum'
+        status:
+          $ref: '#/components/schemas/CharacterStatusEnum'
+        facts:
+          type: array
+          items:
+            $ref: '#/components/schemas/FactRequest'
+        notes:
+          type: string
+    PatchedFactionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        goals:
+          type: string
+        ideology:
+          type: string
+        color:
+          type: string
+          minLength: 1
+          pattern: ^#[0-9a-fA-F]{6}$
+          maxLength: 7
+        emblem:
+          type: string
+          description: Короткий символ (емодзі або літера).
+          maxLength: 8
+    PatchedFindingRequest:
+      type: object
+      properties:
+        decision:
+          $ref: '#/components/schemas/DecisionEnum'
+        decision_note:
+          type: string
+          maxLength: 500
+    PatchedLoreEntryRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        content:
+          type: string
+        category:
+          $ref: '#/components/schemas/LoreEntryCategoryEnum'
+        custom_category:
+          type: string
+          maxLength: 60
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 60
+          maxItems: 30
+        related_characters:
+          type: array
+          items:
+            type: integer
+        related_factions:
+          type: array
+          items:
+            type: integer
+    PatchedMembershipRequest:
+      type: object
+      properties:
+        character:
+          type: integer
+        faction:
+          type: integer
+        role:
+          type: string
+          maxLength: 120
+        start_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        start_label:
+          type: string
+          maxLength: 120
+        end_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        end_label:
+          type: string
+          maxLength: 120
+        notes:
+          type: string
+    PatchedRelationshipRequest:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/RelationshipKindEnum'
+        source:
+          allOf:
+          - $ref: '#/components/schemas/EntityRefRequest'
+          writeOnly: true
+        target:
+          allOf:
+          - $ref: '#/components/schemas/EntityRefRequest'
+          writeOnly: true
+        description:
+          type: string
+        directed:
+          type: boolean
+        start_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        start_label:
+          type: string
+          maxLength: 120
+        end_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        end_label:
+          type: string
+          maxLength: 120
+    PatchedSettingsRequest:
+      type: object
+      properties:
+        theme:
+          $ref: '#/components/schemas/ThemeEnum'
+        language:
+          $ref: '#/components/schemas/LanguageEnum'
+        quick_checks_enabled:
+          type: boolean
+        spellcheck_enabled:
+          type: boolean
+    PatchedTimelineEventRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        start_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        start_label:
+          type: string
+          maxLength: 120
+        end_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        end_label:
+          type: string
+          maxLength: 120
+        precision:
+          $ref: '#/components/schemas/PrecisionEnum'
+        uncertainty:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          description: ± у одиницях ключа часу.
+        sort_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          description: Порядок для подій без відомої дати.
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantRequest'
+        factions:
+          type: array
+          items:
+            type: integer
+        lore_entries:
+          type: array
+          items:
+            type: integer
+        chapters:
+          type: array
+          items:
+            type: integer
+    PatchedUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          minLength: 1
+        bio:
+          type: string
+          maxLength: 2000
+    PatchedWorldRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        genre:
+          type: string
+          maxLength: 120
+        rules:
+          type: string
+          description: Загальні правила світу.
+        tech_level:
+          type: string
+          maxLength: 120
+        magic_system:
+          type: string
+          description: Магія або інші системи світу.
+        time_unit_label:
+          type: string
+          maxLength: 40
+        calendar_notes:
+          type: string
+    PrecisionEnum:
+      enum:
+      - exact
+      - approximate
+      - unknown
+      type: string
+      description: |-
+        * `exact` - Точна
+        * `approximate` - Приблизна
+        * `unknown` - Невідома
+    QuickCheckRequest:
+      type: object
+      properties:
+        chapter:
+          type: integer
+          minimum: 1
+        text:
+          type: string
+          maxLength: 20000
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
+      required:
+      - chapter
+      - text
+    ReasonEnum:
+      enum:
+      - autosave
+      - manual
+      - restore
+      - import
+      type: string
+      description: |-
+        * `autosave` - Автозбереження
+        * `manual` - Вручну
+        * `restore` - Перед відновленням
+        * `import` - Перед імпортом
+    RegisterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - email
+      - name
+      - password
+    Relationship:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        kind:
+          $ref: '#/components/schemas/RelationshipKindEnum'
+        description:
+          type: string
+        directed:
+          type: boolean
+        start_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        start_label:
+          type: string
+          maxLength: 120
+        end_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        end_label:
+          type: string
+          maxLength: 120
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - kind
+    RelationshipKindEnum:
+      enum:
+      - alliance
+      - enmity
+      - family
+      - subordination
+      - membership
+      - acquaintance
+      - mentorship
+      - other
+      type: string
+      description: |-
+        * `alliance` - Союз
+        * `enmity` - Ворожнеча
+        * `family` - Родинний звʼязок
+        * `subordination` - Підпорядкування
+        * `membership` - Членство
+        * `acquaintance` - Знайомство
+        * `mentorship` - Наставництво
+        * `other` - Інше
+    RelationshipRequest:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/RelationshipKindEnum'
+        source:
+          allOf:
+          - $ref: '#/components/schemas/EntityRefRequest'
+          writeOnly: true
+        target:
+          allOf:
+          - $ref: '#/components/schemas/EntityRefRequest'
+          writeOnly: true
+        description:
+          type: string
+        directed:
+          type: boolean
+        start_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        start_label:
+          type: string
+          maxLength: 120
+        end_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        end_label:
+          type: string
+          maxLength: 120
+      required:
+      - kind
+      - source
+      - target
+    ReorderRequest:
+      type: object
+      properties:
+        order:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          maxItems: 5000
+      required:
+      - order
+    RoleEnum:
+      enum:
+      - participant
+      - mentioned
+      - posthumous
+      type: string
+      description: |-
+        * `participant` - Учасник
+        * `mentioned` - Згадується
+        * `posthumous` - Посмертно / пояснено правилом світу
+    Settings:
+      type: object
+      properties:
+        theme:
+          $ref: '#/components/schemas/ThemeEnum'
+        language:
+          $ref: '#/components/schemas/LanguageEnum'
+        quick_checks_enabled:
+          type: boolean
+        spellcheck_enabled:
+          type: boolean
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - updated_at
+    SeverityEnum:
+      enum:
+      - info
+      - warning
+      - error
+      type: string
+      description: |-
+        * `info` - Інформація
+        * `warning` - Попередження
+        * `error` - Помилка
+    SourceEnum:
+      enum:
+      - rules
+      - text
+      - ai
+      type: string
+      description: |-
+        * `rules` - Детерміновані правила
+        * `text` - Текстові евристики
+        * `ai` - Локальна модель
+    SourceTypeEnum:
+      enum:
+      - chapter
+      - lore
+      - character
+      - faction
+      - event
+      - relationship
+      - dependency
+      - membership
+      type: string
+      description: |-
+        * `chapter` - Розділ
+        * `lore` - Запис лору
+        * `character` - Персонаж
+        * `faction` - Фракція
+        * `event` - Подія
+        * `relationship` - Звʼязок
+        * `dependency` - Часова залежність
+        * `membership` - Членство
+    SpellcheckRequestRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          maxLength: 100000
+        world:
+          type: integer
+          minimum: 1
+      required:
+      - text
+    ThemeEnum:
+      enum:
+      - dark
+      - light
+      type: string
+      description: |-
+        * `dark` - Dark
+        * `light` - Light
+    TimelineEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        start_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        start_label:
+          type: string
+          maxLength: 120
+        end_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        end_label:
+          type: string
+          maxLength: 120
+        precision:
+          $ref: '#/components/schemas/PrecisionEnum'
+        uncertainty:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          description: ± у одиницях ключа часу.
+        sort_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          description: Порядок для подій без відомої дати.
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Participant'
+        factions:
+          type: array
+          items:
+            type: integer
+        lore_entries:
+          type: array
+          items:
+            type: integer
+        chapters:
+          type: array
+          items:
+            type: integer
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - title
+      - updated_at
+    TimelineEventRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        start_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        start_label:
+          type: string
+          maxLength: 120
+        end_key:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          nullable: true
+        end_label:
+          type: string
+          maxLength: 120
+        precision:
+          $ref: '#/components/schemas/PrecisionEnum'
+        uncertainty:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+          description: ± у одиницях ключа часу.
+        sort_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          description: Порядок для подій без відомої дати.
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantRequest'
+        factions:
+          type: array
+          items:
+            type: integer
+        lore_entries:
+          type: array
+          items:
+            type: integer
+        chapters:
+          type: array
+          items:
+            type: integer
+      required:
+      - title
+    TypeEnum:
+      enum:
+      - character
+      - faction
+      - event
+      - lore
+      type: string
+      description: |-
+        * `character` - character
+        * `faction` - faction
+        * `event` - event
+        * `lore` - lore
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        email:
+          type: string
+          format: email
+        bio:
+          type: string
+          maxLength: 2000
+        date_joined:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - date_joined
+      - email
+      - id
+      - name
+    World:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        genre:
+          type: string
+          maxLength: 120
+        rules:
+          type: string
+          description: Загальні правила світу.
+        tech_level:
+          type: string
+          maxLength: 120
+        magic_system:
+          type: string
+          description: Магія або інші системи світу.
+        time_unit_label:
+          type: string
+          maxLength: 40
+        calendar_notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        characters_count:
+          type: integer
+          readOnly: true
+          default: 0
+        factions_count:
+          type: integer
+          readOnly: true
+          default: 0
+        lore_count:
+          type: integer
+          readOnly: true
+          default: 0
+        events_count:
+          type: integer
+          readOnly: true
+          default: 0
+        books_count:
+          type: integer
+          readOnly: true
+          default: 0
+      required:
+      - books_count
+      - characters_count
+      - created_at
+      - events_count
+      - factions_count
+      - id
+      - lore_count
+      - name
+      - updated_at
+    WorldRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        genre:
+          type: string
+          maxLength: 120
+        rules:
+          type: string
+          description: Загальні правила світу.
+        tech_level:
+          type: string
+          maxLength: 120
+        magic_system:
+          type: string
+          description: Магія або інші системи світу.
+        time_unit_label:
+          type: string
+          maxLength: 40
+        calendar_notes:
+          type: string
+      required:
+      - name
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
