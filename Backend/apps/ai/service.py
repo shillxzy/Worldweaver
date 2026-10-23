@@ -60,7 +60,7 @@ TASKS = {
 
 
 # Bump when the scan prompt changes: chapters scanned with an older prompt are scanned again.
-SCAN_PROMPT_VERSION = 6
+SCAN_PROMPT_VERSION = 7
 
 FACT_KINDS = {
     "death": "загинув або помер",
@@ -82,7 +82,9 @@ SCAN_TASK = (
     "чого ще не міг дізнатися; не сходиться час, вік, порядок подій, зовнішність, імена, стосунки, належність до "
     "фракції; дія порушує правила світу з енциклопедії; логічна дірка в межах самого фрагмента. "
     "Не пиши про стиль, граматику, темп, побажання до сюжету. Флешбеки, сни, спогади, чутки, брехня чи помилка "
-    "персонажа — не ляпи. Для кожної проблеми: summary — одне зрозуміле речення українською; explanation — коротко, "
+    "персонажа — не ляпи. Згадка, обговорення, похорон чи розслідування смерті загиблого — це не його дія. Сарказм, "
+    "жарт і думка одного персонажа про іншого — не факт. Статус у довідці [C…] стосується лише цього розділу; якщо "
+    "статусу немає — його не знаємо. Для кожної проблеми: summary — одне зрозуміле речення українською; explanation — коротко, "
     "чому це суперечність і що могло б її розвʼязати; severity — error (явний ляп), warning (ймовірний), info "
     "(дрібниця); confidence від 0 до 1; evidence — дві ДОСЛІВНІ короткі цитати: одна з [F] (source \"F\"), друга з "
     "джерела, якому вона суперечить (його мітка, напр. \"P3\" чи \"C1\"), або дві з [F], якщо фрагмент суперечить "
@@ -92,6 +94,31 @@ SCAN_TASK = (
     "одне коротке речення; quote — дослівна цитата з [F] (до 15 слів). Звичайні дії (пішов, сказав, подивився) не "
     "виписуй."
 )
+
+
+JUDGE_VERDICTS = {
+    "contradiction": "A справді неможливе, якщо правдиве B, і текст цього ніяк не пояснює",
+    "mention_only": "персонажа чи подію лише згадують, обговорюють, розслідують, згадують тіло чи смерть — він сам не діє",
+    "explained": "суперечність пояснено в тексті (протез, лікування, воскресіння, флешбек, сон, план, чутка, маскування)",
+    "irony_or_opinion": "сарказм, жарт, перебільшення, погроза або думка чи помилка персонажа",
+    "consistent": "A і B узгоджуються або говорять про різне",
+    "different_entity": "ідеться про різних людей, предмети чи місця з подібними назвами",
+    "not_enough_info": "з цих уривків вирішити неможливо",
+}
+
+JUDGE_TASK = (
+    "Перевір одну підозру на сюжетний ляп у романі. Нижче — опис підозри, уривок A з розділу, де нібито ляп "
+    "(цитата позначена ⟦ ⟧), і уривок B — те, чому він нібито суперечить (раніше в книзі або довідка "
+    "енциклопедії). Прочитай ЦІЛІ уривки, а не лише цитати, й обери verdict:\n"
+    + "\n".join(f"- {k}: {v};" for k, v in JUDGE_VERDICTS.items())
+    + "\nЛяп — лише contradiction. Якщо сумніваєшся між contradiction та іншим вердиктом — обери інший. "
+    'Відповідай JSON {"verdict": "...", "reason": "одне речення українською"}.'
+)
+JUDGE_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {"verdict": {"type": "string", "enum": list(JUDGE_VERDICTS)}, "reason": {"type": "string"}},
+    "required": ["verdict", "reason"],
+}
 
 
 NAME_LINE = re.compile(r"^\s*(Імʼя|Інші імена)\s*:", re.IGNORECASE)
@@ -250,6 +277,28 @@ class AIService:
             self._scan_findings(data.validated_data["issues"], labels, text, chapter_id, offset),
             self._scan_facts(data.validated_data["facts"], text, offset),
         )
+
+    def judge(self, draft, passage_a, passage_b):
+        """Second opinion on one candidate, made on the original paragraphs of both places.
+
+        Returns the verdict (one of ``JUDGE_VERDICTS``). Only "contradiction" keeps the finding; the reason is
+        added to its explanation. A malformed answer counts as "not_enough_info" (the candidate is dropped).
+        """
+        user = (
+            f"{JUDGE_TASK}\n\nПідозра: {draft.summary}\nПояснення: {draft.explanation}\n\n"
+            + _quote_block("A", "Розділ із підозрою", passage_a) + "\n\n" + _quote_block("B", "Чому суперечить", passage_b)
+        )
+        try:
+            raw = self.backend.chat_json(SYSTEM_BASE, user, JUDGE_JSON_SCHEMA, max_tokens=600)
+        except AIResponseError:
+            return "not_enough_info"
+        verdict = raw.get("verdict") if isinstance(raw, dict) else None
+        if verdict not in JUDGE_VERDICTS:
+            return "not_enough_info"
+        reason = str(raw.get("reason") or "").strip()
+        if verdict == "contradiction" and reason:
+            draft.explanation = (draft.explanation + "\n" if draft.explanation else "") + f"Перевірка в контексті: {reason}"[:1500]
+        return verdict
 
     @staticmethod
     def _scan_facts(items, text, offset):

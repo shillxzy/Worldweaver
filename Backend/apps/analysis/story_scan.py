@@ -13,6 +13,7 @@ Why this shape:
 import hashlib
 import logging
 import time
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from django.conf import settings
@@ -28,6 +29,7 @@ from .engine.manuscript import ManuscriptAnalyzer
 from .engine.rules import run_world_rules
 from .engine.story import EntityIndex, Fact, recall, world_brief
 from .models import AnalysisJob, ChapterScan, Finding
+from .services import replace_rule_findings
 
 logger = logging.getLogger("worldweaver.analysis")
 STORY_KINDS = (AnalysisJob.Kind.BOOK, AnalysisJob.Kind.BOOK_WITH_LORE, AnalysisJob.Kind.CHAPTER)
@@ -65,7 +67,7 @@ def process_story_job(job, ai_service_factory, heartbeat, persist_findings, stat
     target_qs = Chapter.objects.filter(pk__in=[c.id for c in targets])
     rules_snap = load_snapshot(job.world, target_qs)
     drafts = (run_world_rules(rules_snap) if job.kind != AnalysisJob.Kind.CHAPTER else []) + ManuscriptAnalyzer(rules_snap).run()
-    persist_findings(drafts, job.world, job)
+    replace_rule_findings(drafts, job.world, job, [c.id for c in targets], include_world_level=job.kind != AnalysisJob.Kind.CHAPTER)
 
     if not job.use_ai:
         return finish(job, started, stats, ai_status="not_used")
@@ -79,6 +81,7 @@ def process_story_job(job, ai_service_factory, heartbeat, persist_findings, stat
     # 2. The whole book is the reading context (memory), even when one chapter is checked.
     snap = load_snapshot(job.world, Chapter.objects.filter(pk__in=[c.id for c in book_chapters]))
     index = EntityIndex(snap)
+    story_chapters = {c.id: c for c in snap.chapters}  # story time / order for time-dependent facts
     order_of = {c.id: i for i, c in enumerate(book_chapters)}
     scans = {s.chapter_id: s for s in ChapterScan.objects.filter(chapter__in=book_chapters)}
     full = bool((job.params or {}).get("full"))
@@ -95,6 +98,8 @@ def process_story_job(job, ai_service_factory, heartbeat, persist_findings, stat
     workers = max(1, settings.AI_SCAN_PARALLEL)
     services = [service] + [ai_service_factory() for _ in range(workers - 1)]
     done, wall, failed_total = 0, 0.0, 0
+    verdicts, judged, failures = Counter(), [], Counter()
+    chapter_texts = {c.id: (c.title, c.text) for c in snap.chapters}
     ai_status, ai_error = "ok", ""
     for position, (chapter, chunks) in enumerate(plan, 1):
         chapter_started = time.perf_counter()
@@ -105,9 +110,9 @@ def process_story_job(job, ai_service_factory, heartbeat, persist_findings, stat
         pieces = []
         for chunk in chunks:
             keys = index.keys(chunk.text)
-            pieces.append((chunk, keys, world_brief(snap, index, chunk.text, keys),
+            pieces.append((chunk, keys, world_brief(snap, index, chunk.text, keys, chapter=story_chapters.get(chapter.id)),
                            recall(memory, keys, before_order=order)))
-        results, failed, unavailable = _scan_pieces(services, chapter, pieces, job, heartbeat)
+        results, failed, unavailable = _scan_pieces(services, chapter, pieces, job, heartbeat, failures)
         done += len(chunks)
         wall += time.perf_counter() - chapter_started
         if unavailable:
@@ -115,7 +120,15 @@ def process_story_job(job, ai_service_factory, heartbeat, persist_findings, stat
             break  # chapters finished so far are saved; the next run continues from here
         chapter_drafts, chapter_facts = [], []
         for found, facts in results:
-            chapter_drafts += found
+            for draft in found:
+                # 2. Second opinion on the original paragraphs of both places (not on short quotes or a retelling).
+                verdict = judge_in_context(service, draft, chapter_texts)
+                verdicts[verdict] += 1
+                if len(judged) < 400:  # research log: what was proposed and why it was kept or dropped
+                    judged.append({"chapter": chapter.title, "summary": draft.summary[:200], "verdict": verdict})
+                if verdict == "contradiction":
+                    chapter_drafts.append(draft)
+                heartbeat(job)
             for f in facts:
                 refs = index.keys(f"{f['who']} {f['fact']} {f['quote']}")
                 chapter_facts.append(Fact(f["who"], f["fact"], f["quote"], chapter.id, chapter.title, order, f["start"], refs, f["kind"]))
@@ -131,7 +144,32 @@ def process_story_job(job, ai_service_factory, heartbeat, persist_findings, stat
         failed_total += failed
 
     return finish(job, started, stats, ai_status=ai_status, ai_error=ai_error, scanned=len(plan), skipped=len(targets) - len(todo),
-                  pieces=done, failed_pieces=failed_total, ai_seconds=round(wall, 1))
+                  pieces=done, failed_pieces=failed_total, ai_seconds=round(wall, 1), judge=dict(verdicts), judged=judged, failures=dict(failures))
+
+
+PASSAGE_CHARS = 1200  # on each side of a quote: the judge sees whole paragraphs, not a sentence
+
+
+def passage(evidence, chapter_texts):
+    """Original text around a piece of evidence, the quote marked with ⟦ ⟧; for encyclopedia evidence its text."""
+    if evidence.source_type == "chapter" and evidence.source_id in chapter_texts and evidence.start is not None:
+        title, text = chapter_texts[evidence.source_id]
+        start, end = evidence.start, evidence.end or evidence.start + len(evidence.quote)
+        before = text[max(0, start - PASSAGE_CHARS):start]
+        after = text[end:end + PASSAGE_CHARS]
+        return f"Розділ «{title}»: …{before}⟦{text[start:end]}⟧{after}…"
+    return f"{evidence.label}: {evidence.quote}"
+
+
+def judge_in_context(service, draft, chapter_texts):
+    if len(draft.evidence) < 2:
+        return "not_enough_info"
+    try:
+        return service.judge(draft, passage(draft.evidence[0], chapter_texts), passage(draft.evidence[1], chapter_texts))
+    except AIUnavailable:
+        raise
+    except AIError:
+        return "not_enough_info"
 
 
 def _scan_with_retry(service, chunk, chapter, brief, remembered):
@@ -142,7 +180,7 @@ def _scan_with_retry(service, chunk, chapter, brief, remembered):
         return service.scan_chunk(chunk.text, chapter.title, brief, remembered, chapter.id, offset=chunk.start)
 
 
-def _scan_pieces(services, chapter, pieces, job, heartbeat):
+def _scan_pieces(services, chapter, pieces, job, heartbeat, failures=None):
     """Scan the pieces of one chapter, in parallel when there are several (model calls only — no
     database work happens in the threads). Returns (results in text order, failed count, unavailable message)."""
     results, failed, unavailable = [None] * len(pieces), 0, ""
@@ -178,6 +216,8 @@ def _scan_pieces(services, chapter, pieces, job, heartbeat):
         elif error is not None:
             failed += 1
             results[i] = ([], [])
+            if failures is not None:
+                failures[str(error)[:120]] += 1  # our own messages: never manuscript text
         else:
             results[i] = result
     return [r for r in results if r is not None], failed, unavailable
