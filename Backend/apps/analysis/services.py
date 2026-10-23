@@ -4,6 +4,7 @@ import time
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.ai.backends import AIError, AIUnavailable
@@ -84,6 +85,19 @@ def persist_findings(drafts, world, job=None, skip_decided=False):
     return created
 
 
+def replace_rule_findings(drafts, world, job, chapter_ids, include_world_level=True):
+    """Rules give the same answer on every run, so a run replaces the undecided rule findings of its scope
+    instead of adding copies; findings the author already decided on are kept and not created again."""
+    scope = Q(chapter_id__in=list(chapter_ids))
+    if include_world_level:
+        scope |= Q(chapter__isnull=True)
+    rules = Finding.objects.filter(world=world).exclude(source=Finding.Source.AI).filter(scope)
+    rules.filter(decision=Finding.Decision.NEW).delete()
+    if job is not None:
+        rules.update(job=job)  # decided findings stay (one row each) and show in the latest results
+    return persist_findings(drafts, world, job, skip_decided=True)
+
+
 # --- deterministic analysis (synchronous, fast) -----------------------------------
 
 def run_consistency(world, user, chapters=None):
@@ -95,7 +109,7 @@ def run_consistency(world, user, chapters=None):
     )
     snap = load_snapshot(world, chapters)
     drafts = run_world_rules(snap) + ManuscriptAnalyzer(snap).run()
-    findings = persist_findings(drafts, world, job)
+    findings = replace_rule_findings(drafts, world, job, [c.id for c in snap.chapters])
     job.status = AnalysisJob.Status.COMPLETED
     job.progress = 1
     job.finished_at = timezone.now()

@@ -49,7 +49,12 @@ MEMORY_RE = re.compile(
 REVIVAL_RE = re.compile(r"(?i:воскрес\w*|ожи(?:в|ла|ли)\b|повернув(?:ся)? з мертвих|повернула(?:ся)? з мертвих|"
                         r"вижи(?:в|ла)|врятува\w*|не загину\w*|не поме\w*|інсценува\w*|підробив\w* смерть)")
 DEATH_AFTER_NAME = r"(?:\s+(?:був|була)\s+(?:вбит\w*|убит\w*|страчен\w*))|(?:\s+(?:загину(?:в|ла)|поме(?:р|рла)|заги(?:нув|бла)|сконав|сконала|розбився|розбилася|потону(?:в|ла)))"
-DEATH_BEFORE_NAME = r"(?i:смерть|загибель|похорон\w*|тіло|вбили|убили|стратили|вбивство)\s+"
+# "тіло" alone is not death ("влила отруту в тіло Андерсона" is about a living body): only a dead body counts.
+DEATH_BEFORE_NAME = r"(?i:смерть|загибель|похорон\w*|мертве\s+тіло|труп|вбили|убили|стратили|вбивство)\s+"
+# An attempt, a wound or a lethal threat is not a death unless the sentence also states the death itself.
+ATTEMPT_RE = re.compile(r"(?i:спроб\w*|намага\w*|хоті\w*\s+вбити|хоче\s+вбити|отру\w*|смертельн\w*|доз[уиаою]\b|поранен\w*|"
+                        r"майже|ледь|мало не)")
+DEFINITE_DEATH_RE = re.compile(r"(?i:\bпоме(?:р|рла|рли)\b|\bзагину(?:в|ла|ли)\b|\bвбит\w*|\bубит\w*|\bмертв\w*|\bсконав\w*|\bтруп\w*)")
 AGE_AFTER_NAME = re.compile(r"^\s*(?:було|виповнилося|виповнилось|минуло)\s+(\d{1,4})\s+(?:рік|роки|років)")
 AGE_BEFORE_NAME = re.compile(r"(\d{1,4})[-‑]?річн(?:ий|а|ого|ої|ому|ій|ім|ою)\s+$")
 
@@ -97,8 +102,11 @@ class ManuscriptAnalyzer:
             before = chapter.text[max(0, mention.start - 25): mention.start]
             if re.match(DEATH_AFTER_NAME, after, re.IGNORECASE) or re.search(DEATH_BEFORE_NAME + r"$", before):
                 start, end, sentence = sentence_at(chapter.text, mention.start, self.spans(chapter))
-                if not re.search(r"(?i:\bне\s+(?:загину|поме|вбит|убит))", sentence) and not re.search(r"(?i:\bякби\b|\bмайже\b|\bледь не\b|\bмало не\b)", sentence):
-                    result.append((mention, sentence))
+                if re.search(r"(?i:\bне\s+(?:загину|поме|вбит|убит))", sentence) or re.search(r"(?i:\bякби\b|\bмайже\b|\bледь не\b|\bмало не\b)", sentence):
+                    continue
+                if ATTEMPT_RE.search(sentence) and not DEFINITE_DEATH_RE.search(sentence):
+                    continue  # "влила смертельну дозу отрути" — an attempt, the outcome is not stated
+                result.append((mention, sentence))
         return result
 
     def _stated_ages(self, chapter):
@@ -121,14 +129,17 @@ class ManuscriptAnalyzer:
     def dead_character_active(self):
         out = []
         for chapter in self.chapters:
-            if chapter.is_flashback or not chapter.story_time.known:
+            if chapter.is_flashback:
                 continue
             reported = set()
             for mention in self.mentions(chapter):
                 c = self.snap.character(mention.entity_id)
                 if c is None or c.id in reported:
                     continue
-                outcome = compare_points(chapter.story_time, c.death)
+                outcome = compare_points(chapter.story_time, c.death) if chapter.story_time.known else None
+                by_chapter = False
+                if not outcome and c.death_chapter and c.dead_in(chapter):
+                    outcome, by_chapter = "likely", True  # the author set the chapter of the death
                 if not outcome:
                     continue
                 active, sentence, _ = self._is_active(chapter, mention)
@@ -144,8 +155,9 @@ class ManuscriptAnalyzer:
                     rule="dead_character_active", category=category, severity=severity, source="text",
                     summary=f"{c.name} діє в розділі «{chapter.title}», хоча на цей час уже загинув(ла)",
                     explanation=(
-                        f"Час розділу: {chapter.story_time.text()}; смерть персонажа: {c.death.text()}. "
-                        "Якщо це спогад, сон або дія за правилом світу — позначте розділ як флешбек або відхиліть результат."
+                        (f"За енциклопедією персонаж загинув у розділі «{c.death_chapter[2]}». " if by_chapter else
+                         f"Час розділу: {chapter.story_time.text()}; смерть персонажа: {c.death.text()}. ")
+                        + "Якщо це спогад, сон або дія за правилом світу — позначте розділ як флешбек або відхиліть результат."
                         + (" Оповідач позначений як ненадійний." if chapter.narrator_unreliable else "")
                     ),
                     chapter_id=chapter.id, quote=ev.quote, start=ev.start, end=ev.end, quote_verified=ev.verified,
