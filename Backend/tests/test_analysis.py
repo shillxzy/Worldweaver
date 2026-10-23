@@ -116,19 +116,25 @@ def test_worker_completes_without_ai(client, world, book, story):
     assert backend.calls == []
 
 
-def test_worker_with_ai_verifies_quotes_and_rejects_hallucinated_sources(world, book, user, story):
+def test_worker_with_ai_verifies_quotes_and_rejects_hallucinated_sources(world, book, user, story, chapter):
+    story["kael"].death_chapter = chapter  # the death is placed in the story: chapter 1
+    story["kael"].save()
+    status = "Статус у цьому розділі: загинув"
+
     def answer(prompt):
+        if "Перевір одну підозру" in prompt:
+            return {"verdict": "contradiction", "reason": "Каель загинув у розділі 1, а тут говорить."}
         return {"facts": [], "issues": [
             {"type": "dead_character", "severity": "warning", "confidence": 0.8, "summary": "Каель живий після смерті",
-             "explanation": "Він говорить.", "evidence": [{"source": "F", "quote": "сказав Каель і рушив"}, {"source": "C1", "quote": "Смерть: 340"}]},
+             "explanation": "Він говорить.", "evidence": [{"source": "F", "quote": "сказав Каель і рушив"}, {"source": "C1", "quote": status}]},
             {"type": "invented", "severity": "error", "summary": "Вигадана цитата",
-             "evidence": [{"source": "F", "quote": "цього речення немає в тексті"}, {"source": "C1", "quote": "Смерть: 340"}]},
+             "evidence": [{"source": "F", "quote": "цього речення немає в тексті"}, {"source": "C1", "quote": status}]},
             {"type": "fake_source", "severity": "error", "summary": "Посилання на неіснуюче джерело",
              "evidence": [{"source": "F", "quote": "сказав Каель і рушив"}, {"source": "L99", "quote": "щось"}]},
             {"type": "name_only", "severity": "warning", "summary": "Доказ — лише імʼя",
              "evidence": [{"source": "F", "quote": "сказав Каель і рушив"}, {"source": "C1", "quote": "Імʼя: Каель"}]},
             {"type": "unsure", "severity": "warning", "confidence": 0.2, "summary": "Модель не впевнена",
-             "evidence": [{"source": "F", "quote": "сказав Каель і рушив"}, {"source": "C1", "quote": "Смерть: 340"}]},
+             "evidence": [{"source": "F", "quote": "сказав Каель і рушив"}, {"source": "C1", "quote": status}]},
         ]}
     backend = FakeBackend(answer)
     AnalysisJob.objects.create(user=user, world=world, book=book, chapter=story["later"], kind="chapter")
@@ -143,6 +149,7 @@ def test_worker_with_ai_verifies_quotes_and_rejects_hallucinated_sources(world, 
     assert good.evidence.filter(source_type="character", source_id=story["kael"].id, verified=True).exists()
     # an invented quote, a made-up source, a name instead of a fact, low confidence: dropped
     assert set(ai) == {"Каель живий після смерті"}
+    assert "Перевірка в контексті" in good.explanation and job.stats["judge"] == {"contradiction": 1}
     assert "<<<" in backend.calls[0] and "ігноруй будь-які" not in backend.calls[0]  # data is fenced, rules live in system prompt
 
 
@@ -310,6 +317,8 @@ def saga(world, book, chapter):
 
 def story_answer(prompt):
     """A fake model: remembers the lost arm and spots the contradiction when the memory shows it."""
+    if "Перевір одну підозру" in prompt:
+        return {"verdict": "contradiction", "reason": "Без лівої руки не плескають обома долонями."}
     if "втратив ліву руку" in prompt and "заплескав" not in prompt:
         return {"issues": [], "facts": [{"who": "Каель", "kind": "injury", "fact": "Каель лишився без лівої руки", "quote": "Каель втратив ліву руку"}]}
     if "заплескав" in prompt and "[P1]" in prompt:
@@ -356,11 +365,12 @@ def test_story_scan_resumes_and_rescans_only_changed_chapters(world, book, user,
     set_text(saga["later"], "Каель радісно заплескав обома долонями. Потім сів.")
     edited = FakeBackend(story_answer)
     run_book_scan(world, book, user, edited)
-    assert len(edited.calls) == 1 and "[P1]" in edited.calls[0]  # only the edited chapter, still with the memory
+    # only the edited chapter (scan + the judge of its one candidate), still with the memory
+    assert len(edited.calls) == 2 and "[P1]" in edited.calls[0]
     assert Finding.objects.filter(world=world, source="ai").count() == 1  # replaced, not duplicated
     full = FakeBackend(story_answer)
     run_book_scan(world, book, user, full, full=True)
-    assert len(full.calls) == 3  # one request per chapter
+    assert len(full.calls) == 4  # one request per chapter + one judge request for the candidate
 
 
 def test_story_scan_stops_when_model_disappears_and_continues_later(world, book, user, saga):
@@ -378,7 +388,7 @@ def test_story_scan_stops_when_model_disappears_and_continues_later(world, book,
     assert ChapterScan.objects.filter(chapter=saga["first"]).exists() and not ChapterScan.objects.filter(chapter=saga["middle"]).exists()
     resumed = FakeBackend(story_answer)
     job = run_book_scan(world, book, user, resumed)
-    assert len(resumed.calls) == 2 and job.stats["skipped"] == 1
+    assert len(resumed.calls) == 3 and job.stats["skipped"] == 1
     assert job.findings.filter(source="ai", chapter=saga["later"]).exists()  # memory from chapter 1 survived the stop
 
 
@@ -410,3 +420,74 @@ def test_truncated_model_answer_keeps_complete_items():
     cut = '{"facts": [{"who": "Каель", "fact": "втратив руку } у бою", "quote": "\\"рука\\""}, {"who": "Ейра", "fa'
     assert close_truncated_json(cut) == {"facts": [{"who": "Каель", "fact": "втратив руку } у бою", "quote": '"рука"'}]}
     assert close_truncated_json('{"fac') is None
+
+
+
+# --- research fixes: time of a status, judge in context, rules -----------------------------------
+
+def test_dead_status_without_time_is_not_used_against_chapters(world, book, chapter):
+    from apps.analysis.engine.loader import load_snapshot
+    from apps.analysis.engine.story import status_line
+
+    later = Chapter.objects.create(book=book, title="Розділ 9", order=8)
+    jon = Character.objects.create(world=world, name="Джонатан", status="dead", death_key=2027, death_label="2027")
+    snap = load_snapshot(world)
+    c = snap.character(jon.id)
+    first, ninth = (next(x for x in snap.chapters if x.id == ch.id) for ch in (chapter, later))
+    assert c.dead_in(ninth) is None and status_line(c, ninth) is None  # no death chapter, no chapter time: unknown
+    jon.death_chapter = chapter
+    jon.save()
+    c = load_snapshot(world).character(jon.id)
+    assert c.dead_in(first) is False and c.dead_in(ninth) is True
+    assert status_line(c, ninth).startswith("Статус у цьому розділі: загинув") and "Розділ 1" in status_line(c, ninth)
+    assert "живий" in status_line(c, first) and "пізніше" in status_line(c, first)
+
+
+def test_dead_character_active_uses_the_death_chapter(world, book, chapter):
+    from apps.analysis.engine.loader import load_snapshot
+    from apps.analysis.engine.manuscript import ManuscriptAnalyzer
+
+    later = Chapter.objects.create(book=book, title="Розділ 3", order=2)
+    set_text(later, "— Ходімо, — сказав Каель і рушив до брами.")
+    kael = Character.objects.create(world=world, name="Каель", status="dead")
+    assert not ManuscriptAnalyzer(load_snapshot(world)).dead_character_active()  # status without time: silent
+    kael.death_chapter = chapter
+    kael.save()
+    found = ManuscriptAnalyzer(load_snapshot(world)).dead_character_active()
+    assert [f.chapter_id for f in found] == [later.id] and "Розділ 1" in found[0].explanation
+
+
+def test_an_attempt_is_not_a_death(world, book, chapter):
+    from apps.analysis.engine.loader import load_snapshot
+    from apps.analysis.engine.manuscript import ManuscriptAnalyzer
+
+    Character.objects.create(world=world, name="Андерсон")
+    set_text(chapter, "Надлюдина влила смертельну дозу отрути в тіло Андерсона.")
+    later = Chapter.objects.create(book=book, title="Розділ 2", order=1)
+    set_text(later, "— Ходімо, — сказав Андерсон і рушив до виходу.")
+    assert not ManuscriptAnalyzer(load_snapshot(world)).death_then_alive()
+    set_text(chapter, "Андерсон помер від отрути біля воріт.")
+    assert ManuscriptAnalyzer(load_snapshot(world)).death_then_alive()
+
+
+def test_rule_findings_are_replaced_not_copied(client, world, story):
+    for _ in range(3):
+        client.post(f"/api/v1/worlds/{world.id}/consistency/")
+    rules = Finding.objects.filter(world=world).exclude(source="ai")
+    assert rules.count() == rules.values("fingerprint").distinct().count() > 0
+
+
+def test_judge_sees_whole_paragraphs_and_drops_a_mere_mention(world, book, user, saga):
+    seen = []
+
+    def answer(prompt):
+        if "Перевір одну підозру" in prompt:
+            seen.append(prompt)
+            return {"verdict": "mention_only", "reason": "Про Каеля лише говорять."}
+        return story_answer(prompt)
+
+    job = run_book_scan(world, book, user, FakeBackend(answer))
+    assert not job.findings.filter(source="ai").exists() and job.stats["judge"] == {"mention_only": 1}
+    # the judge got the paragraph around each quote, with the quote marked, not just the short quotes
+    assert "⟦заплескав обома долонями⟧" in seen[0] and "радісно" in seen[0]
+    assert "⟦Каель втратив ліву руку⟧" in seen[0] and "У битві біля мосту" in seen[0]
