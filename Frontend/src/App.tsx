@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { AccessContext, accessFor } from './access'
 import { authApi } from './api/auth'
 import { booksApi } from './api/books'
 import { ApiError } from './api/client'
@@ -18,9 +19,11 @@ import BookPage from './pages/Book'
 import Characters from './pages/Characters'
 import Diary from './pages/Diary'
 import Encyclopedia from './pages/Encyclopedia'
+import Join from './pages/Join'
 import Library from './pages/Library'
 import Overview from './pages/Overview'
 import Profile from './pages/Profile'
+import PublicSite from './pages/PublicSite'
 import Settings from './pages/Settings'
 import Timeline from './pages/Timeline'
 
@@ -47,6 +50,8 @@ function renderRoute(route: Route, book: Book | undefined): ReactNode {
     case 'profile': return <Profile />
     case 'settings': return <Settings />
     case 'library': return <Library />
+    case 'join': return <Join token={route.token} />
+    case 'public': return null
     case 'project': {
       if (!book) return null
       switch (route.section) {
@@ -79,6 +84,9 @@ export default function App() {
 
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
   useEffect(() => { document.documentElement.lang = lang }, [lang])
+  // Browser tab: "<book> · Worldweaver" inside a project, the app name elsewhere.
+  const titledBook = route.page === 'project' ? books.find((b) => b.id === route.bookId)?.title : undefined
+  useEffect(() => { document.title = titledBook ? `${titledBook} · Worldweaver` : 'Worldweaver' }, [titledBook])
   useEffect(() => {
     const read = () => setRoute(parseHash())
     const up = () => setOnline(true)
@@ -160,6 +168,16 @@ export default function App() {
     books, booksLoading, refreshBooks, notify, online,
   }), [theme, setTheme, lang, setLang, t, user, logout, accountDeleted, books, booksLoading, refreshBooks, notify, online])
 
+  // The public site is for everyone: no account, no session check, no app chrome.
+  if (route.page === 'public') {
+    return (
+      <AppContext.Provider value={ctx}>
+        <PublicSite token={route.token} chapterId={route.chapterId} pageId={route.pageId} />
+        <Toasts toasts={toasts} />
+      </AppContext.Provider>
+    )
+  }
+
   if (auth === 'checking') {
     return <AppContext.Provider value={ctx}><div className="boot"><Loading /></div></AppContext.Provider>
   }
@@ -178,7 +196,9 @@ export default function App() {
   if (auth === 'anonymous') {
     return (
       <AppContext.Provider value={ctx}>
-        <Auth onEnter={(me) => { setUser(me); setAuth('authed'); void refreshBooks() }} />
+        {/* After signing in the hash is unchanged, so an invitation link continues to its join page. */}
+        <Auth notice={route.page === 'join' ? t('join.signInFirst') : undefined}
+          onEnter={(me) => { setUser(me); setAuth('authed'); void refreshBooks() }} />
         <Toasts toasts={toasts} />
       </AppContext.Provider>
     )
@@ -197,7 +217,9 @@ export default function App() {
           {!online && <div className="offline-banner">{t('ui.offlineBanner')}</div>}
           <div className="page" key={pageKey}>
             {route.page === 'project' && !book && booksLoading && <Loading />}
-            {missingBook ? <Library /> : renderRoute(route, book)}
+            {missingBook ? <Library /> : (
+              <AccessContext.Provider value={accessFor(book?.my_role)}>{renderRoute(route, book)}</AccessContext.Provider>
+            )}
           </div>
         </main>
       </div>

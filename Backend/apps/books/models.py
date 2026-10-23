@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from apps.worlds.models import TIME_DIGITS, World, hex_color
@@ -29,6 +30,8 @@ class Book(models.Model):
     manuscript_format = models.CharField(max_length=12, choices=Format.choices, default=Format.NOVEL)
     accent = models.CharField(max_length=7, default="#e0b36a", validators=[hex_color])
     cover = models.ImageField(upload_to="covers/", null=True, blank=True)
+    # Shown on the world's public site (only when public access is on and only its public chapters).
+    is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -59,6 +62,8 @@ class Chapter(models.Model):
     story_time_label = models.CharField(max_length=120, blank=True)
     is_flashback = models.BooleanField(default=False)
     narrator_unreliable = models.BooleanField(default=False)
+    is_public = models.BooleanField(default=False)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -84,6 +89,7 @@ class ChapterVersion(models.Model):
     plain_text = models.TextField(blank=True)
     word_count = models.PositiveIntegerField(default=0)
     reason = models.CharField(max_length=10, choices=Reason.choices, default=Reason.AUTOSAVE)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

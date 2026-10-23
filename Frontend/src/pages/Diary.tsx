@@ -1,24 +1,26 @@
 import { useState } from 'react'
 import type { DragEvent } from 'react'
+import { useAccess } from '../access'
 import { boardsApi } from '../api/boards'
 import type { Board, BoardItem, Book } from '../api/types'
 import Header from '../components/Header'
-import { Confirm, ErrorState, Loading } from '../components/Ui'
+import { Confirm, Empty, ErrorState, Loading } from '../components/Ui'
 import { errorText, useAsync, useBusy } from '../hooks'
 import { useApp } from '../settings-context'
 import { cssVars } from '../utils'
 
 const COLORS = ['#e879a8', '#3fb8c9', '#e0b36a', '#6fd1a0', '#c58bff', '#7aa2ff']
 
-/** Loads the book's board, creating it (with default columns) on first visit. */
-async function loadBoard(bookId: number, title: string, signal: AbortSignal): Promise<Board> {
+/** Loads the book's board, creating it (with default columns) on first visit by someone who may edit. */
+async function loadBoard(bookId: number, title: string, canCreate: boolean, signal: AbortSignal): Promise<Board | null> {
   const boards = await boardsApi.forBook(bookId, signal)
-  return boards[0] ?? boardsApi.create({ title, book: bookId, with_default_columns: true })
+  return boards[0] ?? (canCreate ? boardsApi.create({ title, book: bookId, with_default_columns: true }) : null)
 }
 
 export default function Diary({ book }: { book: Book }) {
   const { t, notify } = useApp()
-  const board = useAsync<Board>((signal) => loadBoard(book.id, t('s.diary'), signal), [book.id])
+  const { edit } = useAccess()
+  const board = useAsync<Board | null>((signal) => loadBoard(book.id, t('s.diary'), edit, signal), [book.id, edit])
   const [drafts, setDrafts] = useState<Record<number, string>>({})
   const [editingNote, setEditingNote] = useState<number | null>(null)
   const [noteText, setNoteText] = useState('')
@@ -26,13 +28,14 @@ export default function Diary({ book }: { book: Book }) {
   const [deleting, setDeleting] = useState<BoardItem | null>(null)
   const [linkFrom, setLinkFrom] = useState<number | null>(null)
   const { busy, run } = useBusy()
-  const b = board.data
+  const b = board.data ?? undefined
 
   const columns = (b?.items ?? []).filter((i) => i.kind === 'column').sort((x, y) => x.order - y.order)
   const notesOf = (colId: number) => (b?.items ?? []).filter((i) => i.parent === colId).sort((x, y) => x.order - y.order || x.id - y.id)
   const titleOf = (id: number) => b?.items.find((i) => i.id === id)?.text.slice(0, 40) ?? ''
 
   const guard = (action: () => Promise<void>) => void run(async () => {
+    if (!edit) return
     try { await action() } catch (err) { notify(errorText(err), 'error'); board.reload() }
   })
 
@@ -114,9 +117,10 @@ export default function Diary({ book }: { book: Book }) {
     <>
       <div className="page-head">
         <Header title={t('s.diary')} sub={t('di.sub')} />
-        <button className="btn-ghost" onClick={addColumn} disabled={!b || busy}>+ {t('di.addColumn')}</button>
+        {edit && <button className="btn-ghost" onClick={addColumn} disabled={!b || busy}>+ {t('di.addColumn')}</button>}
       </div>
       <ErrorState error={board.error} onRetry={board.reload} />
+      {board.data === null && <Empty title={t('ro.emptyDiary')} />}
       {linkFrom !== null && <p className="hint">{t('di.linkHint')} «{titleOf(linkFrom)}»</p>}
       <div className="board">
         {columns.map((c) => (
@@ -127,21 +131,21 @@ export default function Diary({ book }: { book: Book }) {
               {editingNote === c.id
                 ? <input className="field inline" autoFocus defaultValue={c.text} onBlur={(e) => saveText(c, e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
-                : <span onDoubleClick={() => setEditingNote(c.id)}>{c.text}</span>}
+                : <span onDoubleClick={() => { if (edit) setEditingNote(c.id) }}>{c.text}</span>}
               <em>{notesOf(c.id).length}</em>
-              <button className="icon-btn" onClick={() => setDeleting(c)} aria-label={t('ui.delete')}>×</button>
+              {edit && <button className="icon-btn" onClick={() => setDeleting(c)} aria-label={t('ui.delete')}>×</button>}
             </h3>
             {notesOf(c.id).map((n, index) => {
               const links = (b?.connections ?? []).filter((x) => x.source === n.id || x.target === n.id)
               return (
-                <div key={n.id} className={'note' + (linkFrom === n.id ? ' linking' : '')} draggable={editingNote !== n.id}
+                <div key={n.id} className={'note' + (linkFrom === n.id ? ' linking' : '')} draggable={edit && editingNote !== n.id}
                   onDragStart={() => setDragged(n.id)} onDragEnd={() => setDragged(null)}
                   onDragOver={(e) => e.preventDefault()} onDrop={drop(c, index)}>
                   {editingNote === n.id ? (
                     <textarea className="field" autoFocus value={noteText} onChange={(e) => setNoteText(e.target.value)}
                       onBlur={() => saveText(n, noteText)} />
                   ) : (
-                    <span onDoubleClick={() => { setEditingNote(n.id); setNoteText(n.text) }}>{n.text}</span>
+                    <span onDoubleClick={() => { if (edit) { setEditingNote(n.id); setNoteText(n.text) } }}>{n.text}</span>
                   )}
                   {links.length > 0 && (
                     <div className="links">{links.map((l) => (
@@ -151,19 +155,19 @@ export default function Diary({ book }: { book: Book }) {
                       </span>
                     ))}</div>
                   )}
-                  <div className="note-acts">
+                  {edit && <div className="note-acts">
                     <button className="link" onClick={() => linkClick(n)}>{linkFrom === n.id ? t('ui.cancel') : t('di.link')}</button>
                     <button className="link" onClick={() => setDeleting(n)}>{t('ui.delete')}</button>
-                  </div>
+                  </div>}
                 </div>
               )
             })}
-            <div className="add-note">
+            {edit && <div className="add-note">
               <textarea className="field" rows={2} placeholder={t('di.notePh')} value={drafts[c.id] ?? ''}
                 onChange={(e) => setDrafts({ ...drafts, [c.id]: e.target.value })}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) addNote(c) }} />
               <button className="btn-ghost" disabled={busy || !(drafts[c.id] ?? '').trim()} onClick={() => addNote(c)}>{t('ui.add')}</button>
-            </div>
+            </div>}
           </div>
         ))}
       </div>

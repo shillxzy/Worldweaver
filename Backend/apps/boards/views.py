@@ -6,14 +6,20 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.common.scoping import parse_id
+from apps.common.scoping import accessible_worlds, method_role, parse_id, require_role
 
 from .models import Board, BoardConnection, BoardItem
 from .serializers import BoardConnectionSerializer, BoardItemSerializer, BoardSerializer, LayoutSerializer
 
 
-def owned_boards(user):
-    return Board.objects.filter(Q(world__owner=user) | Q(book__world__owner=user))
+def accessible_boards(user):
+    worlds = accessible_worlds(user)
+    return Board.objects.filter(Q(world__in=worlds) | Q(book__world__in=worlds)).select_related("world", "book__world")
+
+
+def require_board_role(request, board):
+    """Boards are shared by everyone in the world; changing them needs the editor role."""
+    require_role(request.user, board.book.world if board.book_id else board.world, method_role(request))
 
 
 class BoardViewSet(viewsets.ModelViewSet):
@@ -22,7 +28,12 @@ class BoardViewSet(viewsets.ModelViewSet):
     filterset_fields = ["book", "world"]
 
     def get_queryset(self):
-        return owned_boards(self.request.user).prefetch_related("items", "connections")
+        return accessible_boards(self.request.user).prefetch_related("items", "connections")
+
+    def get_object(self):
+        board = super().get_object()
+        require_board_role(self.request, board)
+        return board
 
     @extend_schema(request=LayoutSerializer, responses=BoardSerializer)
     @action(detail=True, methods=["post"])
@@ -61,7 +72,8 @@ class BoardViewSet(viewsets.ModelViewSet):
 class BoardChildMixin:
     def get_board(self):
         if not hasattr(self, "_board"):
-            self._board = get_object_or_404(owned_boards(self.request.user), pk=parse_id(self.kwargs["board_pk"]) or 0)
+            self._board = get_object_or_404(accessible_boards(self.request.user), pk=parse_id(self.kwargs["board_pk"]) or 0)
+            require_board_role(self.request, self._board)
         return self._board
 
     def get_serializer_context(self):

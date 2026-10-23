@@ -12,7 +12,7 @@ PASSWORD = "Sup3r-secret-pass"
 @pytest.fixture(autouse=True)
 def _tmp_media(settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path / "media"
-    settings.REST_FRAMEWORK = {**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {"auth": "1000/min", "user": "1000/min"}}
+    settings.REST_FRAMEWORK = {**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {"auth": "1000/min", "user": "1000/min", "public": "1000/min"}}
 
 
 def make_user(email="author@example.com", name="Авторка"):

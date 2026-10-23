@@ -12,7 +12,7 @@ from apps.ai.backends import AIError
 from apps.ai.service import AIService
 from apps.books.models import Chapter
 from apps.common.exceptions import ServiceUnavailable
-from apps.common.scoping import owned_world_or_404, parse_id
+from apps.common.scoping import EDIT, VIEW, accessible_worlds, method_role, parse_id, require_role, world_or_404
 
 from .engine.loader import load_snapshot
 from .engine.rules import build_dependency_graph, chronological_order
@@ -27,7 +27,8 @@ class AnalysisJobViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, mix
     filterset_fields = ["world", "book", "chapter", "kind", "status"]
 
     def get_queryset(self):
-        return AnalysisJob.objects.filter(user=self.request.user).annotate(findings_count=Count("findings")).order_by("-created_at", "-id")
+        # Own jobs only, and only while the user can still work on that world (access may be revoked).
+        return AnalysisJob.objects.filter(user=self.request.user, world__in=accessible_worlds(self.request.user, EDIT)).annotate(findings_count=Count("findings")).order_by("-created_at", "-id")
 
     def perform_create(self, serializer):
         job = serializer.save(user=self.request.user, status=AnalysisJob.Status.PENDING)
@@ -77,7 +78,13 @@ class FindingViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Up
     http_method_names = ["get", "patch", "post", "head", "options"]
 
     def get_queryset(self):
-        return Finding.objects.filter(world__owner=self.request.user).select_related("chapter").prefetch_related("evidence")
+        return Finding.objects.filter(world__in=accessible_worlds(self.request.user)).select_related("world", "chapter").prefetch_related("evidence")
+
+    def get_object(self):
+        # Everyone in the world sees the findings; deciding on them (and AI explanations) needs the editor role.
+        finding = super().get_object()
+        require_role(self.request.user, finding.world, EDIT if self.action == "explain" else method_role(self.request))
+        return finding
 
     @extend_schema(request=None, responses=inline_serializer("Explanation", {"explanation": serializers.CharField()}))
     @action(detail=True, methods=["post"], throttle_classes=[UserRateThrottle])
@@ -94,7 +101,7 @@ class FindingViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Up
 class WorldConsistencyView(APIView):
     @extend_schema(request=None, responses=AnalysisJobSerializer)
     def post(self, request, world_pk):
-        world = owned_world_or_404(request.user, world_pk)
+        world = world_or_404(request.user, world_pk, EDIT)
         book_id = parse_id(request.data.get("book")) if hasattr(request, "data") else None
         chapters = Chapter.objects.filter(book__world=world)
         if book_id:
@@ -109,7 +116,7 @@ class WorldChronologyView(APIView):
 
     @extend_schema(responses=None)
     def get(self, request, world_pk):
-        world = owned_world_or_404(request.user, world_pk)
+        world = world_or_404(request.user, world_pk, VIEW)
         snap = load_snapshot(world, Chapter.objects.none())
         graph = build_dependency_graph(snap)
         cycle = graph.find_cycle()
@@ -136,7 +143,7 @@ class QuickCheckView(APIView):
         serializer = QuickCheckSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         chapter = get_object_or_404(
-            Chapter.objects.select_related("book__world").filter(book__world__owner=request.user),
+            Chapter.objects.select_related("book__world").filter(book__world__in=accessible_worlds(request.user, EDIT)),
             pk=parse_id(serializer.validated_data["chapter"]) or 0,
         )
         return Response(quick_check(chapter, serializer.validated_data["text"], serializer.validated_data["offset"]))

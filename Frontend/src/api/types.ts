@@ -31,6 +31,7 @@ export type World = {
   lore_count: number
   events_count: number
   books_count: number
+  my_role: Role
 }
 
 export type CharacterStatus = 'alive' | 'dead' | 'missing' | 'unknown' | 'other'
@@ -61,6 +62,8 @@ export type Character = {
   facts: { label: string; value: string }[]
   notes: string
   has_portrait: boolean
+  has_banner: boolean
+  banner_color: string
   page_id: number | null
   memberships: MembershipBrief[]
   created_at: string
@@ -119,10 +122,14 @@ export type Relationship = {
 export type BookStatus = 'idea' | 'drafting' | 'revising' | 'finished'
 export type ManuscriptFormat = 'novel' | 'novella' | 'short_story' | 'screenplay' | 'other'
 
+/** Role in a shared world; each role includes everything the roles after it may do. */
+export type Role = 'owner' | 'admin' | 'editor' | 'commenter' | 'viewer'
+
 export type Book = {
   id: number; world: number; world_name: string; title: string; description: string; genre: string
   status: BookStatus; manuscript_format: ManuscriptFormat; accent: string; has_cover: boolean
   chapters_count: number; done_chapters: number; word_count: number | null; progress: number
+  my_role: Role; owner_name: string; is_public: boolean
   created_at: string; updated_at: string
 }
 
@@ -131,7 +138,7 @@ export type ChapterStatus = 'draft' | 'revision' | 'done'
 export type ChapterSummary = {
   id: number; book: number; title: string; order: number; word_count: number; status: ChapterStatus
   revision: number; story_time_key: TimeKey; story_time_label: string; is_flashback: boolean
-  narrator_unreliable: boolean; created_at: string; updated_at: string
+  narrator_unreliable: boolean; is_public: boolean; updated_by_name: string; created_at: string; updated_at: string
 }
 
 /** Tiptap / ProseMirror JSON. */
@@ -147,7 +154,7 @@ export type Chapter = ChapterSummary & { content: DocNode; plain_text: string }
 
 export type ChapterVersion = {
   id: number; chapter: number; revision: number; title: string; word_count: number
-  reason: 'autosave' | 'manual' | 'restore' | 'import'; created_at: string
+  reason: 'autosave' | 'manual' | 'restore' | 'import'; author_name: string; created_at: string
 }
 export type ChapterVersionDetail = ChapterVersion & { content: DocNode; plain_text: string }
 
@@ -221,7 +228,7 @@ export type PageEntityType = 'character' | 'faction' | 'lore'
 export type PageSummary = {
   id: number; title: string; icon: string; page_type: string; parent: number | null; sort_order: number
   aliases: string[]; has_children: boolean; has_cover: boolean
-  entity_type: PageEntityType | null; entity_id: number | null; updated_at: string
+  entity_type: PageEntityType | null; entity_id: number | null; is_public: boolean; updated_at: string
 }
 
 export type PropertyKind = 'text' | 'number' | 'date' | 'checkbox' | 'tags' | 'page' | 'pages'
@@ -229,7 +236,7 @@ export type DateValue = { label: string; key: number | null }
 export type PageProperty = { id: number; label: string; kind: PropertyKind; value: unknown; order: number }
 
 export type PageDetail = PageSummary & {
-  content: DocNode; plain_text: string; revision: number; properties: PageProperty[]; created_at: string
+  content: DocNode; plain_text: string; revision: number; properties: PageProperty[]; updated_by_name: string; created_at: string
   breadcrumbs: { id: number; title: string; icon: string }[]
   children: PageSummary[]
   backlinks: { id: number; title: string; icon: string; page_type: string; origins: ('content' | 'property')[] }[]
@@ -239,4 +246,51 @@ export type PageDetail = PageSummary & {
 export type PageTemplateInfo = {
   key: string; builtin: boolean; id: number | null; name: string; icon: string; page_type: string
   properties: { label: string; kind: PropertyKind }[]; world: number | null
+}
+
+/* ---------- co-writing ---------- */
+
+export type Person = { id: number; name: string; has_avatar: boolean; email?: string }
+export type Member = Person & { role: Role; joined_at: string }
+export type MembersInfo = { my_role: Role; members: Member[] }
+
+export type Invite = {
+  id: number; kind: 'email' | 'link'; email: string; role: Role; token: string; created_by_name: string
+  created_at: string; expires_at: string | null; max_uses: number | null; uses: number; status: string
+}
+
+export type InvitePreview = {
+  world: { id: number; name: string }; books: { id: number; title: string }[]; role: Role
+  invited_by: Person | null; email: string; problem: string | null; my_role: Role | null; token?: string
+}
+
+export type Comment = {
+  id: number; chapter: number | null; page: number | null; parent: number | null; author: Person | null
+  body: string; quote: string; resolved: boolean; resolved_by_name: string
+  can_edit: boolean; can_resolve: boolean; can_delete: boolean; created_at: string; updated_at: string
+}
+
+export type PublicSettings = {
+  enabled: boolean; token: string | null
+  books: { id: number; title: string; is_public: boolean; chapters: { id: number; title: string; is_public: boolean; status: ChapterStatus }[] }[]
+  pages: { id: number; title: string; icon: string; parent: number | null; is_public: boolean }[]
+}
+
+export type PublicSite = {
+  world: { name: string; description: string; genre: string }
+  books: { id: number; title: string; description: string; genre: string; accent: string; has_cover: boolean; updated_at: string
+    chapters: { id: number; title: string; word_count: number }[] }[]
+  pages: { id: number; title: string; icon: string; page_type: string; parent: number | null }[]
+}
+
+export type PublicChapter = {
+  id: number; title: string; book: { id: number; title: string }; content: DocNode; word_count: number
+  prev: number | null; next: number | null
+}
+
+export type PublicPage = {
+  id: number; title: string; icon: string; page_type: string; aliases: string[]; has_cover: boolean; updated_at: string
+  content: DocNode; properties: { label: string; kind: PropertyKind; value: unknown }[]
+  children: { id: number; title: string; icon: string }[]
+  character: { status: CharacterStatus; birth_label: string; death_label: string; has_portrait: boolean } | null
 }

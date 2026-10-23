@@ -10,6 +10,7 @@ import { useApp } from '../settings-context'
 import type { Section } from '../types'
 import CoverArt from './CoverArt'
 import Icon from './Icon'
+import ShareDialog from './ShareDialog'
 
 const SECTION_FOR: Record<SearchResult['type'], Section> = {
   book: 'overview', page: 'encyclopedia', character: 'encyclopedia', faction: 'encyclopedia', lore: 'encyclopedia', event: 'timeline', chapter: 'book',
@@ -62,8 +63,9 @@ function GlobalSearch() {
 }
 
 export default function Sidebar({ route }: { route: Route }) {
-  const { t, user, logout, books } = useApp()
+  const { t, user, logout, books, refreshBooks } = useApp()
   const project = route.page === 'project' ? books.find((b) => b.id === route.bookId) : undefined
+  const [sharing, setSharing] = useState(false)
 
   return (
     <aside className="sidebar">
@@ -82,7 +84,10 @@ export default function Sidebar({ route }: { route: Route }) {
 
       {project && (
         <>
-          <p className="label">{project.title}</p>
+          <p className="label project-label">
+            <span>{project.title}</span>
+            {project.my_role !== 'owner' && <span className={'role-pill role-' + project.my_role} title={t('sh.ownerIs').replace('{name}', project.owner_name)}>{t('role.' + project.my_role)}</span>}
+          </p>
           {SECTIONS.map((s) => (
             <button
               key={s.id}
@@ -92,6 +97,14 @@ export default function Sidebar({ route }: { route: Route }) {
               <Icon n={s.icon} />{t('s.' + s.id)}
             </button>
           ))}
+          <button className="nav" onClick={() => setSharing(true)}><Icon n="share" />{t('sh.open')}</button>
+          {sharing && (
+            <ShareDialog book={project} onClose={() => setSharing(false)} onAccessChanged={(change) => {
+              setSharing(false)
+              // After leaving, the project is gone from this account; after a handover the role changes.
+              void refreshBooks().then(() => { if (change === 'left') navigate('/') })
+            }} />
+          )}
         </>
       )}
 

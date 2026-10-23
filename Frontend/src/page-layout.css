@@ -16,7 +16,7 @@
 .page-prose > :first-child { margin-top: 0; }
 .page-prose blockquote { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 10px; padding: 12px 16px; font-style: italic; }
 
-.infobox { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 32px); overflow-y: auto; padding-bottom: 12px; }
+.infobox { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 32px); overflow-y: auto; overflow-x: hidden; padding-bottom: 12px; }
 .info-portrait { display: flex; flex-direction: column; gap: 6px; }
 .portrait-btn { padding: 0; border: 0; border-radius: 10px; overflow: hidden; cursor: zoom-in; background: none; display: block; }
 .portrait-btn img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
@@ -56,3 +56,19 @@
   .infobox { position: static; max-height: none; order: -1; }
   .info-portrait { max-width: 260px; }
 }
+
+/* Section bars take the colour chosen for the book (falls back to the app accent). */
+.page-prose h1, .page-prose h2, .info-bar {
+  background: color-mix(in srgb, var(--book-accent, var(--accent)) 24%, transparent);
+  border-left: 3px solid var(--book-accent, var(--accent));
+}
+
+
+/* Character banner across the top of the page (image, chosen colour or a colour from the name). */
+.page-banner { position: relative; height: 180px; margin: -8px 0 6px; border-radius: 14px; background: var(--card); }
+.banner-tools { position: absolute; right: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; opacity: 0; transition: opacity 0.15s; }
+.page-banner:hover .banner-tools, .banner-tools:focus-within { opacity: 1; }
+.banner-tool { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 0; border-radius: 8px; font-size: 12px; color: #fff; background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(4px); cursor: pointer; }
+.banner-tool:hover { background: rgba(0, 0, 0, 0.75); }
+.banner-tool input[type="color"] { width: 18px; height: 18px; padding: 0; border: 0; background: none; cursor: pointer; }
+@media (hover: none) { .banner-tools { opacity: 1; } }

@@ -5,6 +5,8 @@ from rest_framework.routers import SimpleRouter
 from apps.accounts import views as accounts
 from apps.analysis import views as analysis
 from apps.boards import views as boards
+from apps.collab import public
+from apps.collab import views as collab
 from apps.books import views as books
 from apps.language import views as language
 from apps.pages import views as pages
@@ -23,6 +25,7 @@ router.register(rf"worlds/{ID.format('world_pk')}/dependencies", worlds.Dependen
 router.register(rf"worlds/{ID.format('world_pk')}/relationships", worlds.RelationshipViewSet, basename="relationship")
 router.register(rf"worlds/{ID.format('world_pk')}/pages", pages.PageViewSet, basename="page")
 router.register(rf"worlds/{ID.format('world_pk')}/pages/{ID.format('page_pk')}/properties", pages.PropertyViewSet, basename="page-property")
+router.register(rf"worlds/{ID.format('world_pk')}/comments", collab.CommentViewSet, basename="comment")
 router.register("books", books.BookViewSet, basename="book")
 router.register(rf"books/{ID.format('book_pk')}/chapters", books.ChapterViewSet, basename="chapter")
 router.register("boards", boards.BoardViewSet, basename="board")
@@ -60,6 +63,23 @@ urlpatterns = [
     path("language/spellcheck/", language.SpellcheckView.as_view(), name="spellcheck"),
     path("language/suggest/", language.SuggestView.as_view(), name="spell-suggest"),
     path("language/status/", language.LanguageStatusView.as_view(), name="language-status"),
+    # co-writing: members, invitations, public site
+    path("worlds/<int:world_pk>/members/", collab.MembersView.as_view(), name="world-members"),
+    path("worlds/<int:world_pk>/members/<int:user_pk>/", collab.MemberDetailView.as_view(), name="world-member"),
+    path("worlds/<int:world_pk>/members/<int:user_pk>/avatar/", collab.MemberAvatarView.as_view(), name="world-member-avatar"),
+    path("worlds/<int:world_pk>/transfer/", collab.TransferView.as_view(), name="world-transfer"),
+    path("worlds/<int:world_pk>/invites/", collab.InvitesView.as_view(), name="world-invites"),
+    path("worlds/<int:world_pk>/invites/<int:invite_pk>/", collab.InviteRevokeView.as_view(), name="world-invite"),
+    path("worlds/<int:world_pk>/comment-counts/", collab.CommentCountsView.as_view(), name="comment-counts"),
+    path("worlds/<int:world_pk>/public/", collab.PublicSettingsView.as_view(), name="world-public"),
+    path("invites/mine/", collab.MyInvitesView.as_view(), name="my-invites"),
+    path("invites/<str:token>/", collab.InviteByTokenView.as_view(), name="invite"),
+    path("invites/<str:token>/accept/", collab.InviteAcceptView.as_view(), name="invite-accept"),
+    path("invites/<str:token>/decline/", collab.InviteDeclineView.as_view(), name="invite-decline"),
+    path("public/<str:token>/", public.PublicWorldView.as_view(), name="public-world"),
+    path("public/<str:token>/chapters/<int:chapter_pk>/", public.PublicChapterView.as_view(), name="public-chapter"),
+    path("public/<str:token>/pages/<int:page_pk>/", public.PublicPageView.as_view(), name="public-page"),
+    path("public/<str:token>/images/<str:kind>/<int:pk>/", public.PublicImageView.as_view(), name="public-image"),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
     path("", include(router.urls)),

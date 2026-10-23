@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { ApiError } from '../api/client'
 import { pagesApi } from '../api/pages'
 import type { Book, PageSummary, PageTemplateInfo } from '../api/types'
@@ -8,6 +9,7 @@ import { PAGE_TYPES } from '../data/projects'
 import { Empty, ErrorState, Loading, Modal } from '../components/Ui'
 import { errorText, useAsync, useBusy } from '../hooks'
 import { navigate, pagePath, projectPath } from '../router'
+import { useAccess } from '../access'
 import { useApp } from '../settings-context'
 
 const RECENT_LIMIT = 8
@@ -68,14 +70,14 @@ export default function Encyclopedia({ book, focus, pageId }: { book: Book; focu
   }
 
   return (
-    <div className={'enc-layout' + (treeHidden ? ' tree-hidden' : '')}>
-      {treeHidden && (
+    // The home view already lists every page, so the tree is shown only next to an open page.
+    <div className={'enc-layout' + (!pageId ? ' no-tree' : treeHidden ? ' tree-hidden' : '')} style={{ '--book-accent': book.accent } as CSSProperties}>
+      {treeHidden && pageId && (
         <button className="tree-show" onClick={toggleTree} title={t('enc.showTree')} aria-label={t('enc.showTree')}>☰</button>
       )}
-      <aside className="enc-side" hidden={treeHidden}>
+      <aside className="enc-side" hidden={treeHidden || !pageId}>
         <div className="enc-side-head">
           <button className="link enc-home" onClick={() => navigate(projectPath(book.id, 'encyclopedia'))}>{t('s.encyclopedia')}</button>
-          <button className="btn-ghost small" onClick={() => setCreating({ parent: null })}>+ {t('enc.newPage')}</button>
           <button className="icon-btn" onClick={toggleTree} title={t('enc.hideTree')} aria-label={t('enc.hideTree')}>⟨</button>
         </div>
         <ErrorState error={pagesState.error} onRetry={pagesState.reload} />
@@ -106,8 +108,8 @@ export default function Encyclopedia({ book, focus, pageId }: { book: Book; focu
 }
 
 function pickSummary(p: PageSummary): PageSummary {
-  const { id, title, icon, page_type, parent, sort_order, aliases, has_children, has_cover, entity_type, entity_id, updated_at } = p
-  return { id, title, icon, page_type, parent, sort_order, aliases, has_children, has_cover, entity_type, entity_id, updated_at }
+  const { id, title, icon, page_type, parent, sort_order, aliases, has_children, has_cover, entity_type, entity_id, is_public, updated_at } = p
+  return { id, title, icon, page_type, parent, sort_order, aliases, has_children, has_cover, entity_type, entity_id, is_public, updated_at }
 }
 
 function Home({ book, pages, loading, recent, onOpen, onNew }: {
@@ -135,15 +137,22 @@ function Home({ book, pages, loading, recent, onOpen, onNew }: {
   const list = source.filter((p) => !type || p.page_type === type).sort((a, b) => b.updated_at.localeCompare(a.updated_at))
   const recentPages = recent.map((id) => pages.find((p) => p.id === id)).filter((p): p is PageSummary => Boolean(p))
   const typeLabel = (x: string) => (PAGE_TYPES.includes(x) ? t('ptype.' + x) : x)
+  const { edit } = useAccess()
 
   if (loading) return <Loading />
   if (pages.length === 0) {
-    return <Empty title={t('enc.emptyTitle')} text={t('enc.emptyPagesText')} action={<button className="btn" onClick={onNew}>+ {t('enc.newPage')}</button>} />
+    return <Empty title={t('enc.emptyTitle')} text={edit ? t('enc.emptyPagesText') : t('ro.emptyEncyclopedia')}
+      action={edit ? <button className="btn" onClick={onNew}>+ {t('enc.newPage')}</button> : undefined} />
   }
   return (
     <div className="enc-home-view">
-      <h1>{t('s.encyclopedia')}</h1>
-      <p className="sub">{t('enc.sub')} «{book.world_name}».</p>
+      <div className="enc-home-head">
+        <div>
+          <h1>{t('s.encyclopedia')}</h1>
+          <p className="sub">{t('enc.sub')} «{book.world_name}».</p>
+        </div>
+        {edit && <button className="btn" onClick={onNew}>+ {t('enc.newPage')}</button>}
+      </div>
       <input className="field" placeholder={t('enc.searchPages')} value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="tabs">
         <button className={'tab' + (!type ? ' on' : '')} onClick={() => setType('')}>{t('type.all')}</button>

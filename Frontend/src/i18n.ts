@@ -1,4 +1,5 @@
 import { enApp, ukApp } from './i18n-app'
+import { enCollab, ukCollab } from './i18n-collab'
 import type { Lang } from './settings-context'
 
 export const dict: Record<Lang, Record<string, string>> = {
@@ -78,5 +79,5 @@ export const dict: Record<Lang, Record<string, string>> = {
   },
 }
 
-Object.assign(dict.uk, ukApp)
-Object.assign(dict.en, enApp)
+Object.assign(dict.uk, ukApp, ukCollab)
+Object.assign(dict.en, enApp, enCollab)

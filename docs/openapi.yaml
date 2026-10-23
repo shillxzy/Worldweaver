@@ -1976,6 +1976,83 @@ paths:
                 items:
                   $ref: '#/components/schemas/ChapterList'
           description: ''
+  /api/v1/import/docx/preview/:
+    post:
+      operationId: import_docx_preview_create
+      description: 'Dry run of the heading split: what chapters an import would create,
+        without saving anything.'
+      tags:
+      - import
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocxPreviewRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/invites/{token}/:
+    get:
+      operationId: invites_retrieve
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - invites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/invites/{token}/accept/:
+    post:
+      operationId: invites_accept_create
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - invites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/invites/{token}/decline/:
+    post:
+      operationId: invites_decline_create
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - invites
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/invites/mine/:
+    get:
+      operationId: invites_mine_retrieve
+      description: Personal invitations waiting for the current user's email address.
+      tags:
+      - invites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/v1/language/dictionary/:
     get:
       operationId: language_dictionary_list
@@ -2121,6 +2198,96 @@ paths:
       - cookieAuth: []
       responses:
         '204':
+          description: No response body
+  /api/v1/public/{token}/:
+    get:
+      operationId: public_retrieve
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - public
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/public/{token}/chapters/{chapter_pk}/:
+    get:
+      operationId: public_chapters_retrieve
+      parameters:
+      - in: path
+        name: chapter_pk
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - public
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/public/{token}/images/{kind}/{id}/:
+    get:
+      operationId: public_images_retrieve
+      description: Covers and portraits of public items only.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: kind
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - public
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/public/{token}/pages/{page_pk}/:
+    get:
+      operationId: public_pages_retrieve
+      parameters:
+      - in: path
+        name: page_pk
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - public
+      security:
+      - {}
+      responses:
+        '200':
           description: No response body
   /api/v1/search/:
     get:
@@ -2347,7 +2514,10 @@ paths:
   /api/v1/worlds/{world_pk}/characters/:
     get:
       operationId: worlds_characters_list
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - name: ordering
         required: false
@@ -2408,7 +2578,10 @@ paths:
           description: ''
     post:
       operationId: worlds_characters_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: world_pk
@@ -2442,7 +2615,10 @@ paths:
   /api/v1/worlds/{world_pk}/characters/{id}/:
     get:
       operationId: worlds_characters_retrieve
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -2469,7 +2645,10 @@ paths:
           description: ''
     put:
       operationId: worlds_characters_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -2508,7 +2687,10 @@ paths:
           description: ''
     patch:
       operationId: worlds_characters_partial_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -2546,7 +2728,106 @@ paths:
           description: ''
     delete:
       operationId: worlds_characters_destroy
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this character.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/characters/{id}/banner/:
+    get:
+      operationId: worlds_characters_banner_retrieve
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this character.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Character'
+          description: ''
+    post:
+      operationId: worlds_characters_banner_create
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this character.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                banner:
+                  type: string
+                  format: binary
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Character'
+          description: ''
+    delete:
+      operationId: worlds_characters_banner_destroy
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -2570,7 +2851,10 @@ paths:
   /api/v1/worlds/{world_pk}/characters/{id}/portrait/:
     get:
       operationId: worlds_characters_portrait_retrieve
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -2597,7 +2881,10 @@ paths:
           description: ''
     post:
       operationId: worlds_characters_portrait_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -2633,7 +2920,10 @@ paths:
           description: ''
     delete:
       operationId: worlds_characters_portrait_destroy
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -2672,6 +2962,191 @@ paths:
       responses:
         '200':
           description: No response body
+  /api/v1/worlds/{world_pk}/comment-counts/:
+    get:
+      operationId: worlds_comment_counts_retrieve
+      description: Open comment threads per chapter of a book (for badges in the chapter
+        list).
+      parameters:
+      - in: query
+        name: book
+        schema:
+          type: integer
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/worlds/{world_pk}/comments/:
+    get:
+      operationId: worlds_comments_list
+      description: 'Comments on chapters and pages: commenters and above read and
+        write them.'
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+          description: ''
+    post:
+      operationId: worlds_comments_create
+      description: 'Comments on chapters and pages: commenters and above read and
+        write them.'
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CommentCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CommentCreateRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: ''
+  /api/v1/worlds/{world_pk}/comments/{id}/:
+    get:
+      operationId: worlds_comments_retrieve
+      description: 'Comments on chapters and pages: commenters and above read and
+        write them.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this comment.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: ''
+    patch:
+      operationId: worlds_comments_partial_update
+      description: 'Comments on chapters and pages: commenters and above read and
+        write them.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this comment.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCommentUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCommentUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCommentUpdateRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: ''
+    delete:
+      operationId: worlds_comments_destroy
+      description: 'Comments on chapters and pages: commenters and above read and
+        write them.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this comment.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/worlds/{world_pk}/consistency/:
     post:
       operationId: worlds_consistency_create
@@ -2695,7 +3170,10 @@ paths:
   /api/v1/worlds/{world_pk}/dependencies/:
     get:
       operationId: worlds_dependencies_list
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - name: ordering
         required: false
@@ -2740,7 +3218,10 @@ paths:
           description: ''
     post:
       operationId: worlds_dependencies_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: world_pk
@@ -2774,7 +3255,10 @@ paths:
   /api/v1/worlds/{world_pk}/dependencies/{id}/:
     get:
       operationId: worlds_dependencies_retrieve
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -2801,7 +3285,10 @@ paths:
           description: ''
     delete:
       operationId: worlds_dependencies_destroy
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -2825,7 +3312,10 @@ paths:
   /api/v1/worlds/{world_pk}/factions/:
     get:
       operationId: worlds_factions_list
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - name: ordering
         required: false
@@ -2870,7 +3360,10 @@ paths:
           description: ''
     post:
       operationId: worlds_factions_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: world_pk
@@ -2904,7 +3397,10 @@ paths:
   /api/v1/worlds/{world_pk}/factions/{id}/:
     get:
       operationId: worlds_factions_retrieve
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -2931,7 +3427,10 @@ paths:
           description: ''
     put:
       operationId: worlds_factions_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -2970,7 +3469,10 @@ paths:
           description: ''
     patch:
       operationId: worlds_factions_partial_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3008,7 +3510,10 @@ paths:
           description: ''
     delete:
       operationId: worlds_factions_destroy
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3072,10 +3577,86 @@ paths:
       responses:
         '200':
           description: No response body
+  /api/v1/worlds/{world_pk}/invites/:
+    get:
+      operationId: worlds_invites_list
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invite'
+          description: ''
+    post:
+      operationId: worlds_invites_create
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InviteCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InviteCreateRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invite'
+          description: ''
+  /api/v1/worlds/{world_pk}/invites/{invite_pk}/:
+    delete:
+      operationId: worlds_invites_destroy
+      parameters:
+      - in: path
+        name: invite_pk
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/worlds/{world_pk}/lore/:
     get:
       operationId: worlds_lore_list
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: query
         name: category
@@ -3148,7 +3729,10 @@ paths:
           description: ''
     post:
       operationId: worlds_lore_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: world_pk
@@ -3182,7 +3766,10 @@ paths:
   /api/v1/worlds/{world_pk}/lore/{id}/:
     get:
       operationId: worlds_lore_retrieve
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3209,7 +3796,10 @@ paths:
           description: ''
     put:
       operationId: worlds_lore_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3248,7 +3838,10 @@ paths:
           description: ''
     patch:
       operationId: worlds_lore_partial_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3286,7 +3879,10 @@ paths:
           description: ''
     delete:
       operationId: worlds_lore_destroy
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3307,10 +3903,109 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/worlds/{world_pk}/members/:
+    get:
+      operationId: worlds_members_retrieve
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/worlds/{world_pk}/members/{user_pk}/:
+    patch:
+      operationId: worlds_members_partial_update
+      parameters:
+      - in: path
+        name: user_pk
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRoleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRoleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRoleRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: worlds_members_destroy
+      description: Remove a member, or leave the project (``user_pk`` is your own
+        id).
+      parameters:
+      - in: path
+        name: user_pk
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/members/{user_pk}/avatar/:
+    get:
+      operationId: worlds_members_avatar_retrieve
+      parameters:
+      - in: path
+        name: user_pk
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+          description: ''
   /api/v1/worlds/{world_pk}/memberships/:
     get:
       operationId: worlds_memberships_list
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: query
         name: character
@@ -3363,7 +4058,10 @@ paths:
           description: ''
     post:
       operationId: worlds_memberships_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: world_pk
@@ -3397,7 +4095,10 @@ paths:
   /api/v1/worlds/{world_pk}/memberships/{id}/:
     get:
       operationId: worlds_memberships_retrieve
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3424,7 +4125,10 @@ paths:
           description: ''
     put:
       operationId: worlds_memberships_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3463,7 +4167,10 @@ paths:
           description: ''
     patch:
       operationId: worlds_memberships_partial_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3501,7 +4208,10 @@ paths:
           description: ''
     delete:
       operationId: worlds_memberships_destroy
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3525,7 +4235,10 @@ paths:
   /api/v1/worlds/{world_pk}/pages/:
     get:
       operationId: worlds_pages_list
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - name: ordering
         required: false
@@ -3574,7 +4287,10 @@ paths:
           description: ''
     post:
       operationId: worlds_pages_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: world_pk
@@ -3607,7 +4323,10 @@ paths:
   /api/v1/worlds/{world_pk}/pages/{page_pk}/properties/:
     post:
       operationId: worlds_pages_properties_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: page_pk
@@ -3647,7 +4366,10 @@ paths:
   /api/v1/worlds/{world_pk}/pages/{page_pk}/properties/{id}/:
     patch:
       operationId: worlds_pages_properties_partial_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3691,7 +4413,10 @@ paths:
           description: ''
     delete:
       operationId: worlds_pages_properties_destroy
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3721,7 +4446,10 @@ paths:
   /api/v1/worlds/{world_pk}/pages/{page_pk}/properties/reorder/:
     post:
       operationId: worlds_pages_properties_reorder_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - name: ordering
         required: false
@@ -3773,7 +4501,10 @@ paths:
   /api/v1/worlds/{world_pk}/pages/{id}/:
     get:
       operationId: worlds_pages_retrieve
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3800,7 +4531,10 @@ paths:
           description: ''
     put:
       operationId: worlds_pages_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3839,7 +4573,10 @@ paths:
           description: ''
     patch:
       operationId: worlds_pages_partial_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3877,7 +4614,10 @@ paths:
           description: ''
     delete:
       operationId: worlds_pages_destroy
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3901,7 +4641,10 @@ paths:
   /api/v1/worlds/{world_pk}/pages/{id}/cover/:
     get:
       operationId: worlds_pages_cover_retrieve
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3924,7 +4667,10 @@ paths:
           description: No response body
     post:
       operationId: worlds_pages_cover_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3956,7 +4702,10 @@ paths:
           description: No response body
     delete:
       operationId: worlds_pages_cover_destroy
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -3980,7 +4729,10 @@ paths:
   /api/v1/worlds/{world_pk}/pages/{id}/move/:
     post:
       operationId: worlds_pages_move_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -4020,7 +4772,10 @@ paths:
   /api/v1/worlds/{world_pk}/pages/{id}/save-as-template/:
     post:
       operationId: worlds_pages_save_as_template_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -4130,10 +4885,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedPageListList'
           description: ''
+  /api/v1/worlds/{world_pk}/public/:
+    get:
+      operationId: worlds_public_retrieve
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: worlds_public_partial_update
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPublicSettingsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPublicSettingsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPublicSettingsRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/v1/worlds/{world_pk}/relationships/:
     get:
       operationId: worlds_relationships_list
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: query
         name: kind
@@ -4200,7 +5000,10 @@ paths:
           description: ''
     post:
       operationId: worlds_relationships_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: world_pk
@@ -4234,7 +5037,10 @@ paths:
   /api/v1/worlds/{world_pk}/relationships/{id}/:
     get:
       operationId: worlds_relationships_retrieve
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -4261,7 +5067,10 @@ paths:
           description: ''
     put:
       operationId: worlds_relationships_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -4300,7 +5109,10 @@ paths:
           description: ''
     patch:
       operationId: worlds_relationships_partial_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -4338,7 +5150,10 @@ paths:
           description: ''
     delete:
       operationId: worlds_relationships_destroy
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -4384,7 +5199,10 @@ paths:
   /api/v1/worlds/{world_pk}/timeline/:
     get:
       operationId: worlds_timeline_list
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - name: ordering
         required: false
@@ -4441,7 +5259,10 @@ paths:
           description: ''
     post:
       operationId: worlds_timeline_create
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: world_pk
@@ -4475,7 +5296,10 @@ paths:
   /api/v1/worlds/{world_pk}/timeline/{id}/:
     get:
       operationId: worlds_timeline_retrieve
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -4502,7 +5326,10 @@ paths:
           description: ''
     put:
       operationId: worlds_timeline_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -4541,7 +5368,10 @@ paths:
           description: ''
     patch:
       operationId: worlds_timeline_partial_update
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -4579,7 +5409,10 @@ paths:
           description: ''
     delete:
       operationId: worlds_timeline_destroy
-      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      description: |-
+        For viewsets nested under ``/worlds/<world_pk>/...``.
+
+        ``action_roles`` maps an action name to its minimum role; other actions follow ``method_role``.
       parameters:
       - in: path
         name: id
@@ -4599,6 +5432,36 @@ paths:
       - cookieAuth: []
       responses:
         '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/transfer/:
+    post:
+      operationId: worlds_transfer_create
+      description: Hand the project to another member. The previous owner stays as
+        an admin.
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
           description: No response body
 components:
   schemas:
@@ -4970,6 +5833,16 @@ components:
         progress:
           type: integer
           readOnly: true
+        my_role:
+          type: string
+          readOnly: true
+          default: owner
+        owner_name:
+          type: string
+          readOnly: true
+        is_public:
+          type: boolean
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -4984,6 +5857,9 @@ components:
       - done_chapters
       - has_cover
       - id
+      - is_public
+      - my_role
+      - owner_name
       - progress
       - title
       - updated_at
@@ -5067,6 +5943,12 @@ components:
           type: boolean
         narrator_unreliable:
           type: boolean
+        is_public:
+          type: boolean
+          readOnly: true
+        updated_by_name:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -5083,11 +5965,13 @@ components:
       - book
       - created_at
       - id
+      - is_public
       - order
       - plain_text
       - revision
       - title
       - updated_at
+      - updated_by_name
       - word_count
     ChapterList:
       type: object
@@ -5125,6 +6009,12 @@ components:
           type: boolean
         narrator_unreliable:
           type: boolean
+        is_public:
+          type: boolean
+          readOnly: true
+        updated_by_name:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -5137,10 +6027,12 @@ components:
       - book
       - created_at
       - id
+      - is_public
       - order
       - revision
       - title
       - updated_at
+      - updated_by_name
       - word_count
     ChapterRequest:
       type: object
@@ -5207,11 +6099,15 @@ components:
           format: int64
         reason:
           $ref: '#/components/schemas/ReasonEnum'
+        author_name:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
           readOnly: true
       required:
+      - author_name
       - chapter
       - created_at
       - id
@@ -5240,6 +6136,9 @@ components:
           format: int64
         reason:
           $ref: '#/components/schemas/ReasonEnum'
+        author_name:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -5248,6 +6147,7 @@ components:
         plain_text:
           type: string
       required:
+      - author_name
       - chapter
       - content
       - created_at
@@ -5317,6 +6217,16 @@ components:
         has_portrait:
           type: boolean
           readOnly: true
+        has_banner:
+          type: boolean
+          readOnly: true
+        banner_color:
+          oneOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+            maxLength: 7
+          - type: string
+            maxLength: 0
         page_id:
           type: integer
           nullable: true
@@ -5336,6 +6246,7 @@ components:
           readOnly: true
       required:
       - created_at
+      - has_banner
       - has_portrait
       - id
       - memberships
@@ -5401,6 +6312,13 @@ components:
             $ref: '#/components/schemas/FactRequest'
         notes:
           type: string
+        banner_color:
+          oneOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+            maxLength: 7
+          - type: string
+            maxLength: 0
       required:
       - name
     CharacterStatusEnum:
@@ -5417,6 +6335,92 @@ components:
         * `missing` - Зниклий
         * `unknown` - Невідомо
         * `other` - Інше
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        chapter:
+          type: integer
+          readOnly: true
+          nullable: true
+        page:
+          type: integer
+          readOnly: true
+          nullable: true
+        parent:
+          type: integer
+          readOnly: true
+          nullable: true
+        author:
+          type: string
+          readOnly: true
+        body:
+          type: string
+          maxLength: 4000
+        quote:
+          type: string
+          description: Фрагмент тексту, до якого стосується коментар.
+          maxLength: 500
+        resolved:
+          type: boolean
+          readOnly: true
+        resolved_by_name:
+          type: string
+          readOnly: true
+        can_edit:
+          type: boolean
+          readOnly: true
+        can_resolve:
+          type: boolean
+          readOnly: true
+        can_delete:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - body
+      - can_delete
+      - can_edit
+      - can_resolve
+      - chapter
+      - created_at
+      - id
+      - page
+      - parent
+      - resolved
+      - resolved_by_name
+      - updated_at
+    CommentCreateRequest:
+      type: object
+      properties:
+        chapter:
+          type: integer
+          minimum: 1
+        page:
+          type: integer
+          minimum: 1
+        parent:
+          type: integer
+          minimum: 1
+        body:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        quote:
+          type: string
+          maxLength: 500
+      required:
+      - body
     CsrfResponse:
       type: object
       properties:
@@ -5546,8 +6550,27 @@ components:
         title:
           type: string
           maxLength: 200
+        split_level:
+          type: integer
+          maximum: 3
+          minimum: 1
       required:
       - book
+      - file
+    DocxPreviewRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+        title:
+          type: string
+          maxLength: 200
+        split_level:
+          type: integer
+          maximum: 3
+          minimum: 1
+      required:
       - file
     EntityRef:
       type: object
@@ -5851,6 +6874,82 @@ components:
         * `potential` - Потенційна семантична суперечність
         * `insufficient_data` - Недостатньо даних
         * `unverified` - Неперевірене припущення моделі
+    Invite:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        kind:
+          type: string
+          readOnly: true
+        email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        role:
+          $ref: '#/components/schemas/Role181Enum'
+        token:
+          type: string
+          readOnly: true
+        created_by_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        max_uses:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        uses:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        status:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - created_by_name
+      - id
+      - kind
+      - status
+      - token
+    InviteCreateRequest:
+      type: object
+      properties:
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        role:
+          allOf:
+          - $ref: '#/components/schemas/Role181Enum'
+          default: viewer
+        expires_in_days:
+          type: integer
+          maximum: 365
+          minimum: 1
+          nullable: true
+        max_uses:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          nullable: true
     JobStatusEnum:
       enum:
       - pending
@@ -6235,6 +7334,9 @@ components:
           type: integer
           nullable: true
           readOnly: true
+        is_public:
+          type: boolean
+          readOnly: true
         updated_at:
           type: string
           format: date-time
@@ -6251,6 +7353,9 @@ components:
           items:
             $ref: '#/components/schemas/Property'
           readOnly: true
+        updated_by_name:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -6262,6 +7367,7 @@ components:
       - has_children
       - has_cover
       - id
+      - is_public
       - parent
       - plain_text
       - properties
@@ -6269,6 +7375,7 @@ components:
       - sort_order
       - title
       - updated_at
+      - updated_by_name
     PageCreateRequest:
       type: object
       properties:
@@ -6333,6 +7440,9 @@ components:
           type: integer
           nullable: true
           readOnly: true
+        is_public:
+          type: boolean
+          readOnly: true
         updated_at:
           type: string
           format: date-time
@@ -6343,6 +7453,7 @@ components:
       - has_children
       - has_cover
       - id
+      - is_public
       - title
       - updated_at
     PageRequest:
@@ -6749,7 +7860,7 @@ components:
           type: integer
         role:
           allOf:
-          - $ref: '#/components/schemas/RoleEnum'
+          - $ref: '#/components/schemas/ParticipantRoleEnum'
           default: participant
         note:
           type: string
@@ -6764,7 +7875,7 @@ components:
           type: integer
         role:
           allOf:
-          - $ref: '#/components/schemas/RoleEnum'
+          - $ref: '#/components/schemas/ParticipantRoleEnum'
           default: participant
         note:
           type: string
@@ -6772,6 +7883,16 @@ components:
           maxLength: 300
       required:
       - character
+    ParticipantRoleEnum:
+      enum:
+      - participant
+      - mentioned
+      - posthumous
+      type: string
+      description: |-
+        * `participant` - Учасник
+        * `mentioned` - Згадується
+        * `posthumous` - Посмертно / пояснено правилом світу
     PasswordChangeRequest:
       type: object
       properties:
@@ -6968,6 +8089,22 @@ components:
             $ref: '#/components/schemas/FactRequest'
         notes:
           type: string
+        banner_color:
+          oneOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+            maxLength: 7
+          - type: string
+            maxLength: 0
+    PatchedCommentUpdateRequest:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        resolved:
+          type: boolean
     PatchedFactionRequest:
       type: object
       properties:
@@ -7093,6 +8230,27 @@ components:
           $ref: '#/components/schemas/PropertyKindEnum'
         value:
           nullable: true
+    PatchedPublicSettingsRequest:
+      type: object
+      description: Owner's switches for the public site; flags map ids to true/false.
+      properties:
+        enabled:
+          type: boolean
+        regenerate:
+          type: boolean
+          default: false
+        books:
+          type: object
+          additionalProperties:
+            type: boolean
+        chapters:
+          type: object
+          additionalProperties:
+            type: boolean
+        pages:
+          type: object
+          additionalProperties:
+            type: boolean
     PatchedRelationshipRequest:
       type: object
       properties:
@@ -7126,6 +8284,11 @@ components:
         end_label:
           type: string
           maxLength: 120
+    PatchedRoleRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/Role181Enum'
     PatchedSettingsRequest:
       type: object
       properties:
@@ -7444,16 +8607,18 @@ components:
           maxItems: 5000
       required:
       - order
-    RoleEnum:
+    Role181Enum:
       enum:
-      - participant
-      - mentioned
-      - posthumous
+      - admin
+      - editor
+      - commenter
+      - viewer
       type: string
       description: |-
-        * `participant` - Учасник
-        * `mentioned` - Згадується
-        * `posthumous` - Посмертно / пояснено правилом світу
+        * `admin` - Адміністратор
+        * `editor` - Редактор
+        * `commenter` - Коментатор
+        * `viewer` - Читач
     Settings:
       type: object
       properties:
@@ -7699,6 +8864,14 @@ components:
             type: integer
       required:
       - title
+    TransferRequest:
+      type: object
+      properties:
+        user:
+          type: integer
+          minimum: 1
+      required:
+      - user
     TypeEnum:
       enum:
       - character
@@ -7791,6 +8964,10 @@ components:
           type: integer
           readOnly: true
           default: 0
+        my_role:
+          type: string
+          readOnly: true
+          default: owner
       required:
       - books_count
       - characters_count
@@ -7799,6 +8976,7 @@ components:
       - factions_count
       - id
       - lore_count
+      - my_role
       - name
       - updated_at
     WorldRequest:

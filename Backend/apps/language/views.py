@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.common.exceptions import ServiceUnavailable
-from apps.common.scoping import owned_world_or_404
+from apps.common.scoping import VIEW, world_or_404
 
 from .models import DictionaryWord
 from .spell import WORD_RE, SpellService, SpellUnavailable, world_vocabulary
@@ -22,7 +22,7 @@ class SpellcheckView(APIView):
     def post(self, request):
         serializer = SpellcheckRequest(data=request.data)
         serializer.is_valid(raise_exception=True)
-        world = owned_world_or_404(request.user, serializer.validated_data["world"]) if serializer.validated_data.get("world") else None
+        world = world_or_404(request.user, serializer.validated_data["world"], VIEW) if serializer.validated_data.get("world") else None
         accepted = set(DictionaryWord.objects.filter(user=request.user).values_list("word", flat=True))
         vocabulary = world_vocabulary(world)
         try:

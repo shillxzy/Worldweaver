@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { charactersApi } from '../api/characters'
+import { useAccess } from '../access'
+import { bannerBackground, charactersApi, nameHue } from '../api/characters'
 import { pagesApi } from '../api/pages'
 import type { Book, Character } from '../api/types'
 import Header from '../components/Header'
@@ -11,12 +12,12 @@ import { navigate, pagePath } from '../router'
 import { useApp } from '../settings-context'
 import { cssVars } from '../utils'
 
-const hue = (s: string) => [...s].reduce((a, c) => a + c.charCodeAt(0) * 7, 0) % 360
 const HONORIFIC = /^(Доктор|Докторка|Капітан|Пан|Пані|Лорд|Леді|Сер)\s+/i
 
 /** Gallery of characters. Each card opens the character's encyclopedia page (its own URL). */
 export default function Characters({ book }: { book: Book }) {
   const { t, notify } = useApp()
+  const { edit } = useAccess()
   const worldId = book.world
   const [query, setQuery] = useState('')
   const [viewing, setViewing] = useState<Character | null>(null)
@@ -41,19 +42,20 @@ export default function Characters({ book }: { book: Book }) {
     <>
       <div className="page-head">
         <Header title={t('s.characters')} sub={`${t('ch.sub')} «${book.title}».`} />
-        <button className="btn" disabled={busy} onClick={create}>+ {t('cf.new')}</button>
+        {edit && <button className="btn" disabled={busy} onClick={create}>+ {t('cf.new')}</button>}
       </div>
       <input className="field search-field" placeholder={t('ui.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
       <ErrorState error={characters.error} onRetry={characters.reload} />
       {characters.loading && !characters.data ? <Loading /> : characters.data?.length === 0 ? (
-        <Empty title={t('chars.emptyTitle')} text={t('chars.emptyText')} action={<button className="btn" onClick={create}>+ {t('cf.new')}</button>} />
+        <Empty title={t('chars.emptyTitle')} text={edit ? t('chars.emptyText') : undefined}
+          action={edit ? <button className="btn" onClick={create}>+ {t('cf.new')}</button> : undefined} />
       ) : (
         <div className="grid">
           {list.map((c) => {
-            const h = hue(c.name)
+            const h = nameHue(c.name)
             return (
               <button className="char" key={c.id} onClick={() => openPage(c)}>
-                <div className="banner" style={{ background: `linear-gradient(135deg, hsl(${h} 45% 32%), hsl(${h + 50} 45% 14%))` }} />
+                <div className="banner" style={{ background: bannerBackground(worldId, c) }} />
                 <div className="char-body">
                   {c.has_portrait
                     ? <img className="av zoomable" src={charactersApi.portraitUrl(worldId, c)} alt={c.name}

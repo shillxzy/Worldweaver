@@ -40,13 +40,14 @@ class WorldSerializer(serializers.ModelSerializer):
     lore_count = serializers.IntegerField(read_only=True, default=0)
     events_count = serializers.IntegerField(read_only=True, default=0)
     books_count = serializers.IntegerField(read_only=True, default=0)
+    my_role = serializers.CharField(read_only=True, default="owner")
 
     class Meta:
         model = World
         fields = [
             "id", "name", "description", "genre", "rules", "tech_level", "magic_system",
             "time_unit_label", "calendar_notes", "created_at", "updated_at",
-            "characters_count", "factions_count", "lore_count", "events_count", "books_count",
+            "characters_count", "factions_count", "lore_count", "events_count", "books_count", "my_role",
         ]
         read_only_fields = ["created_at", "updated_at"]
 
@@ -83,6 +84,7 @@ class CharacterSerializer(serializers.ModelSerializer):
     facts = FactSerializer(many=True, required=False)
     memberships = MembershipBriefSerializer(many=True, read_only=True)
     has_portrait = serializers.SerializerMethodField()
+    has_banner = serializers.SerializerMethodField()
     page_id = serializers.SerializerMethodField()
 
     class Meta:
@@ -91,12 +93,15 @@ class CharacterSerializer(serializers.ModelSerializer):
             "id", "name", "aliases", "summary", "biography", "personality", "appearance", "goals",
             "abilities", "age_text", "birth_key", "birth_label", "birth_precision", "death_key",
             "death_label", "death_precision", "status", "facts", "notes", "has_portrait",
-            "page_id", "memberships", "created_at", "updated_at",
+            "has_banner", "banner_color", "page_id", "memberships", "created_at", "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
 
     def get_has_portrait(self, obj) -> bool:
         return bool(obj.portrait)
+
+    def get_has_banner(self, obj) -> bool:
+        return bool(obj.banner)
 
     def get_page_id(self, obj) -> int | None:
         return _page_id(obj)

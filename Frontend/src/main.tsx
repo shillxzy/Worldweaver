@@ -4,6 +4,7 @@ import './index.css'
 import './ui.css'
 import './encyclopedia.css'
 import './page-layout.css'
+import './collab.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(

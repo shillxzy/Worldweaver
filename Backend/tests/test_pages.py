@@ -142,6 +142,18 @@ def test_pages_isolation_lookup_and_by_entity(client, other_client, world):
     assert r["id"] == c["page_id"] and r["title"] == "Міра"
 
 
+def test_lookup_finds_inflected_names(client, world):
+    jon = client.post(url(world), {"title": "Джонатан Андерсон", "template": "character"}, format="json").json()
+    wtf = client.post(url(world), {"title": "World Trade Federation", "template": "faction"}, format="json").json()
+    client.patch(url(world, f"{wtf['id']}/"), {"aliases": ["Федерація"]}, format="json")
+    client.post(url(world), {"title": "Брюс Адамс", "template": "character"}, format="json")
+    ids = lambda q: [p["id"] for p in client.get(url(world, "lookup/"), {"q": q}).json()]
+    assert ids("Джонатаном Андерсоном") == [jon["id"]]
+    assert ids("джонатана") == [jon["id"]]
+    assert ids("Федерацією") == [wtf["id"]]
+    assert ids("Максимом") == []
+
+
 def test_save_as_template_and_create_from_it(client, world):
     page = client.post(url(world), {"title": "Божество", "page_type": "deity"}, format="json").json()
     client.post(url(world, f"{page['id']}/properties/"), {"label": "Домен", "kind": "tags", "value": ["море"]}, format="json")

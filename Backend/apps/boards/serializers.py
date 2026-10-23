@@ -4,7 +4,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from apps.books.models import Book
-from apps.worlds.models import World
+from apps.common.scoping import EDIT, accessible_worlds
 
 from .models import Board, BoardConnection, BoardItem
 
@@ -69,12 +69,12 @@ class BoardConnectionSerializer(serializers.ModelSerializer):
 
 class OwnedBookField(serializers.PrimaryKeyRelatedField):
     def get_queryset(self):
-        return Book.objects.filter(world__owner=self.context["request"].user)
+        return Book.objects.filter(world__in=accessible_worlds(self.context["request"].user, EDIT))
 
 
 class OwnedWorldField(serializers.PrimaryKeyRelatedField):
     def get_queryset(self):
-        return World.objects.filter(owner=self.context["request"].user)
+        return accessible_worlds(self.context["request"].user, EDIT)
 
 
 class BoardSerializer(serializers.ModelSerializer):

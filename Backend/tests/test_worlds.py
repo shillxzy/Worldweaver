@@ -96,6 +96,22 @@ def test_portrait_upload_validation_and_private_access(client, other_client, wor
     assert client.delete(url).status_code == 204
 
 
+def test_character_banner_color_and_image(client, other_client, world):
+    c = Character.objects.create(world=world, name="Каель")
+    detail = f"{base(world)}/characters/{c.id}/"
+    assert client.patch(detail, {"banner_color": "red"}, format="json").status_code == 400
+    r = client.patch(detail, {"banner_color": "#3fb8c9"}, format="json")
+    assert r.status_code == 200 and r.json()["banner_color"] == "#3fb8c9" and not r.json()["has_banner"]
+    assert client.patch(detail, {"banner_color": ""}, format="json").json()["banner_color"] == ""
+    url = detail + "banner/"
+    r = client.post(url, {"banner": _png((400, 120))}, format="multipart")
+    assert r.status_code == 200 and r.json()["has_banner"]
+    assert client.get(url)["Content-Type"] == "image/png"
+    assert other_client.get(url).status_code == 404
+    assert client.delete(url).status_code == 204
+    assert client.get(detail).json()["has_banner"] is False
+
+
 def test_portrait_size_limit(client, world, settings):
     settings.WW_MAX_PORTRAIT_BYTES = 100
     c = Character.objects.create(world=world, name="Каель")

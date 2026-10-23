@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "apps.ai",
     "apps.language",
     "apps.pages",
+    "apps.collab",
 ]
 
 MIDDLEWARE = [
@@ -175,7 +176,7 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.common.exceptions.api_exception_handler",
-    "DEFAULT_THROTTLE_RATES": {"auth": "20/min"},
+    "DEFAULT_THROTTLE_RATES": {"auth": "20/min", "public": "120/min"},
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
 }
 

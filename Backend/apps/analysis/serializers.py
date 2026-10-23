@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from apps.books.models import Book, Chapter
+from apps.common.scoping import EDIT, accessible_worlds
 from apps.worlds.models import World
 
 from .models import AnalysisJob, Evidence, Finding
@@ -50,9 +51,11 @@ class AnalysisJobSerializer(serializers.ModelSerializer):
         fields = super().get_fields()
         request = self.context.get("request")
         if request is not None and request.user.is_authenticated:
-            fields["world"].queryset = World.objects.filter(owner=request.user)
-            fields["book"].queryset = Book.objects.filter(world__owner=request.user)
-            fields["chapter"].queryset = Chapter.objects.filter(book__world__owner=request.user)
+            # Running checks (and the AI) is part of working on the text: editors and above.
+            worlds = accessible_worlds(request.user, EDIT)
+            fields["world"].queryset = worlds
+            fields["book"].queryset = Book.objects.filter(world__in=worlds)
+            fields["chapter"].queryset = Chapter.objects.filter(book__world__in=worlds)
         return fields
 
     def validate(self, attrs):

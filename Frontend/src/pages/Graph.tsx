@@ -1,3 +1,4 @@
+import { useAccess } from '../access'
 import {
   Background, ConnectionMode, Controls, Handle, MarkerType, MiniMap, Position, ReactFlow, applyNodeChanges,
 } from '@xyflow/react'
@@ -65,6 +66,7 @@ let loadCounter = 0
 
 export default function Graph({ book }: { book: Book }) {
   const { t, theme, notify } = useApp()
+  const { edit } = useAccess()
   const worldId = book.world
   const [view, setView] = useState<View>('relations')
   const [familyOnly, setFamilyOnly] = useState(false)
@@ -164,6 +166,7 @@ export default function Graph({ book }: { book: Book }) {
   if (d && flow.key !== flowKey) setFlow({ key: flowKey, nodes: buildNodes(false) })
 
   const persist = (nodes: GNode[]) => {
+    if (!edit) return  // readers may move nodes to look around; the shared layout is not changed
     window.clearTimeout(saveTimer.current)
     const positions = Object.fromEntries(nodes.map((n) => [n.id, [n.position.x, n.position.y] as [number, number]]))
     saveTimer.current = window.setTimeout(() => {
@@ -212,9 +215,9 @@ export default function Graph({ book }: { book: Book }) {
             <button className={view === 'relations' ? 'on' : ''} onClick={() => { setView('relations'); setSelected(null) }}>{t('gr.relations')}</button>
             <button className={view === 'factions' ? 'on' : ''} onClick={() => { setView('factions'); setSelected(null) }}>{t('gr.factions')}</button>
           </div>
-          <button className="btn-ghost" onClick={() => setCreating('character')}>+ {t('search.character')}</button>
-          <button className="btn-ghost" onClick={() => setCreating('faction')}>+ {t('search.faction')}</button>
-          <button className="btn-ghost" onClick={relayout} disabled={!d}>{t('gr.relayout')}</button>
+          {edit && <button className="btn-ghost" onClick={() => setCreating('character')}>+ {t('search.character')}</button>}
+          {edit && <button className="btn-ghost" onClick={() => setCreating('faction')}>+ {t('search.faction')}</button>}
+          {edit && <button className="btn-ghost" onClick={relayout} disabled={!d}>{t('gr.relayout')}</button>}
         </div>
       </div>
       <ErrorState error={data.error} onRetry={data.reload} />
@@ -232,7 +235,7 @@ export default function Graph({ book }: { book: Book }) {
               onNodeClick={(_, n) => setSelected({ type: 'node', id: n.id })}
               onEdgeClick={(_, e) => setSelected({ type: 'edge', id: e.id })}
               onPaneClick={() => setSelected(null)}
-              onConnect={onConnect} connectionMode={ConnectionMode.Loose}
+              onConnect={onConnect} connectionMode={ConnectionMode.Loose} nodesConnectable={edit}
               deleteKeyCode={null} colorMode={theme} fitView minZoom={0.1} maxZoom={2.5} proOptions={{ hideAttribution: true }}
             >
               <Background gap={24} />
@@ -255,28 +258,28 @@ export default function Graph({ book }: { book: Book }) {
               </div>
             )}
             {selectedChar && (
-              <NodePanel key={selectedChar.id} title={selectedChar.name} onEdit={() => openPage('character', selectedChar.id, selectedChar.page_id)}
+              <NodePanel key={selectedChar.id} title={selectedChar.name} canDelete={edit} onEdit={() => openPage('character', selectedChar.id, selectedChar.page_id)}
                 onDelete={() => setDeleting({ label: selectedChar.name, run: () => charactersApi.remove(worldId, selectedChar.id) })}>
                 <label>{t('cf.status')}
-                  <select className="field" value={selectedChar.status} disabled={busy}
+                  <select className="field" value={selectedChar.status} disabled={busy || !edit}
                     onChange={(e) => guard(() => charactersApi.update(worldId, selectedChar.id, { status: e.target.value as CharacterStatus }))}>
                     {STATUSES.map((s) => <option key={s} value={s}>{t('status.' + s)}</option>)}
                   </select>
                 </label>
                 {selectedChar.summary && <p>{selectedChar.summary}</p>}
-                <LinkTo nodeKey={`character:${selectedChar.id}`} keys={nodeKeys} nameOf={nameOf} onPick={(target) => setConnecting({ source: `character:${selectedChar.id}`, target })} />
+                {edit && <LinkTo nodeKey={`character:${selectedChar.id}`} keys={nodeKeys} nameOf={nameOf} onPick={(target) => setConnecting({ source: `character:${selectedChar.id}`, target })} />}
                 <Connections nodeKey={`character:${selectedChar.id}`} edges={edges} nameOf={nameOf} onPick={(id) => setSelected({ type: 'edge', id })} />
               </NodePanel>
             )}
             {selectedFaction && (
-              <NodePanel key={selectedFaction.id} title={selectedFaction.name} onEdit={() => openPage('faction', selectedFaction.id, selectedFaction.page_id)}
+              <NodePanel key={selectedFaction.id} title={selectedFaction.name} canDelete={edit} onEdit={() => openPage('faction', selectedFaction.id, selectedFaction.page_id)}
                 onDelete={() => setDeleting({ label: selectedFaction.name, run: () => factionsApi.remove(worldId, selectedFaction.id) })}>
                 <label>{t('ui.color')}
-                  <input className="field color" type="color" defaultValue={selectedFaction.color}
+                  <input className="field color" type="color" defaultValue={selectedFaction.color} disabled={!edit}
                     onBlur={(e) => e.target.value !== selectedFaction.color && guard(() => factionsApi.update(worldId, selectedFaction.id, { color: e.target.value }))} />
                 </label>
                 {selectedFaction.description && <p>{selectedFaction.description}</p>}
-                <LinkTo nodeKey={`faction:${selectedFaction.id}`} keys={nodeKeys} nameOf={nameOf} onPick={(target) => setConnecting({ source: `faction:${selectedFaction.id}`, target })} />
+                {edit && <LinkTo nodeKey={`faction:${selectedFaction.id}`} keys={nodeKeys} nameOf={nameOf} onPick={(target) => setConnecting({ source: `faction:${selectedFaction.id}`, target })} />}
                 <Connections nodeKey={`faction:${selectedFaction.id}`} edges={edges} nameOf={nameOf} onPick={(id) => setSelected({ type: 'edge', id })} />
               </NodePanel>
             )}
@@ -284,26 +287,26 @@ export default function Graph({ book }: { book: Book }) {
               <div className="form" key={selectedRel.id}>
                 <h3>{selectedRel.source.label} — {selectedRel.target.label}</h3>
                 <label>{t('gr.kind')}
-                  <select className="field" value={selectedRel.kind} disabled={busy}
+                  <select className="field" value={selectedRel.kind} disabled={busy || !edit}
                     onChange={(e) => guard(() => relationshipsApi.update(worldId, selectedRel.id, { kind: e.target.value as RelationshipKind }))}>
                     {REL_KINDS.map((k) => <option key={k} value={k}>{t('relKind.' + k)}</option>)}
                   </select>
                 </label>
                 <label>{t('ui.description')}
-                  <textarea className="field" defaultValue={selectedRel.description}
+                  <textarea className="field" defaultValue={selectedRel.description} readOnly={!edit}
                     onBlur={(e) => e.target.value !== selectedRel.description && guard(() => relationshipsApi.update(worldId, selectedRel.id, { description: e.target.value }))} />
                 </label>
-                <button className="btn-ghost danger-text" onClick={() => setDeleting({ label: t('relKind.' + selectedRel.kind), run: () => relationshipsApi.remove(worldId, selectedRel.id) })}>{t('ui.delete')}</button>
+                {edit && <button className="btn-ghost danger-text" onClick={() => setDeleting({ label: t('relKind.' + selectedRel.kind), run: () => relationshipsApi.remove(worldId, selectedRel.id) })}>{t('ui.delete')}</button>}
               </div>
             )}
             {selectedMem && (
               <div className="form" key={selectedMem.id}>
                 <h3>{selectedMem.character_name} → {selectedMem.faction_name}</h3>
                 <label>{t('cf.role')}
-                  <input className="field" defaultValue={selectedMem.role}
+                  <input className="field" defaultValue={selectedMem.role} readOnly={!edit}
                     onBlur={(e) => e.target.value !== selectedMem.role && guard(() => factionsApi.updateMembership(worldId, selectedMem.id, { role: e.target.value }))} />
                 </label>
-                <button className="btn-ghost danger-text" onClick={() => setDeleting({ label: t('gr.memberEdge'), run: () => factionsApi.removeMembership(worldId, selectedMem.id) })}>{t('ui.delete')}</button>
+                {edit && <button className="btn-ghost danger-text" onClick={() => setDeleting({ label: t('gr.memberEdge'), run: () => factionsApi.removeMembership(worldId, selectedMem.id) })}>{t('ui.delete')}</button>}
               </div>
             )}
           </aside>
@@ -325,7 +328,7 @@ export default function Graph({ book }: { book: Book }) {
   )
 }
 
-function NodePanel({ title, onEdit, onDelete, children }: { title: string; onEdit: () => void; onDelete: () => void; children: ReactNode }) {
+function NodePanel({ title, canDelete, onEdit, onDelete, children }: { title: string; canDelete: boolean; onEdit: () => void; onDelete: () => void; children: ReactNode }) {
   const { t } = useApp()
   return (
     <div className="form">
@@ -333,7 +336,7 @@ function NodePanel({ title, onEdit, onDelete, children }: { title: string; onEdi
       {children}
       <div className="head-acts">
         <button className="btn-ghost" onClick={onEdit}>{t('gr.openCard')}</button>
-        <button className="btn-ghost danger-text" onClick={onDelete}>{t('ui.delete')}</button>
+        {canDelete && <button className="btn-ghost danger-text" onClick={onDelete}>{t('ui.delete')}</button>}
       </div>
     </div>
   )

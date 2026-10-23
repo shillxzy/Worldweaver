@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.common.images import clear_image, image_response, replace_image
-from apps.common.scoping import WorldScopedMixin, owned_world_or_404
+from apps.common.scoping import EDIT, OWN, VIEW, WorldScopedMixin, accessible_worlds, annotate_role, method_role, require_role, world_or_404
 
 from .models import (
     Character,
@@ -46,7 +46,7 @@ class WorldViewSet(viewsets.ModelViewSet):
     filterset_fields = ["genre"]
 
     def get_queryset(self):
-        return World.objects.filter(owner=self.request.user).annotate(
+        return annotate_role(accessible_worlds(self.request.user), self.request.user).annotate(
             characters_count=Count("characters", distinct=True),
             factions_count=Count("factions", distinct=True),
             lore_count=Count("lore_entries", distinct=True),
@@ -56,6 +56,12 @@ class WorldViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    def get_object(self):
+        # Settings of the world (rules, calendar) are content: editors may change them; only the owner deletes.
+        world = super().get_object()
+        require_role(self.request.user, world, OWN if self.action == "destroy" else method_role(self.request))
+        return world
 
 
 class CharacterViewSet(WorldScopedMixin, viewsets.ModelViewSet):
@@ -88,6 +94,18 @@ class CharacterViewSet(WorldScopedMixin, viewsets.ModelViewSet):
             clear_image(character, "portrait", ["updated_at"])
             return Response(status=status.HTTP_204_NO_CONTENT)
         replace_image(character, "portrait", request.FILES.get("portrait"), 1024, ["updated_at"])
+        return Response(self.get_serializer(character).data)
+
+    @extend_schema(request={"multipart/form-data": {"type": "object", "properties": {"banner": {"type": "string", "format": "binary"}}}}, responses=CharacterSerializer)
+    @action(detail=True, methods=["get", "post", "delete"], parser_classes=[MultiPartParser], url_path="banner")
+    def banner(self, request, world_pk=None, pk=None):
+        character = self.get_object()
+        if request.method == "GET":
+            return image_response(character.banner, "Банер не завантажено.")
+        if request.method == "DELETE":
+            clear_image(character, "banner", ["updated_at"])
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        replace_image(character, "banner", request.FILES.get("banner"), 1600, ["updated_at"])
         return Response(self.get_serializer(character).data)
 
 
@@ -203,7 +221,7 @@ class WorldSearchView(APIView):
 
     @extend_schema(parameters=[OpenApiParameter("q", str, required=True)], responses=None)
     def get(self, request, world_pk):
-        world = owned_world_or_404(request.user, world_pk)
+        world = world_or_404(request.user, world_pk, VIEW)
         return Response(search_world(world, request.query_params.get("q", "")))
 
 
@@ -240,13 +258,13 @@ class GraphLayoutView(APIView):
 
     @extend_schema(responses=None)
     def get(self, request, world_pk, view):
-        world = owned_world_or_404(request.user, world_pk)
+        world = world_or_404(request.user, world_pk, VIEW)
         layout = GraphLayout.objects.filter(world=world, view=_graph_view(view)).first()
         return Response({"view": view, "positions": layout.positions if layout else {}})
 
     @extend_schema(request=None, responses=None)
     def put(self, request, world_pk, view):
-        world = owned_world_or_404(request.user, world_pk)
+        world = world_or_404(request.user, world_pk, EDIT)
         positions = request.data.get("positions") if isinstance(request.data, dict) else None
         if not isinstance(positions, dict) or len(positions) > 2000:
             raise ValidationError({"positions": "Очікується обʼєкт із не більше ніж 2000 вузлів."})

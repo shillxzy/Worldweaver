@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { charactersApi } from '../api/characters'
+import { useAccess } from '../access'
+import { bannerBackground, charactersApi } from '../api/characters'
 import { ApiError } from '../api/client'
 import { factionsApi } from '../api/factions'
 import { relationshipsApi } from '../api/relationships'
@@ -41,6 +42,7 @@ function DateInput({ label, keyValue, onSave }: {
   onSave: (v: { label: string; key: string | null; precision: Precision }) => void
 }) {
   const { t } = useApp()
+  const { edit } = useAccess()
   const initial = label || (keyValue !== null ? String(Number(keyValue)) : '')
   const [text, setText] = useState(initial)
   const parsed = parseWorldDate(text)
@@ -49,6 +51,7 @@ function DateInput({ label, keyValue, onSave }: {
     const p = parseWorldDate(text)
     onSave({ label: text.trim(), key: p.key === null ? null : String(p.key), precision: p.key === null ? 'unknown' : p.precision })
   }
+  if (!edit) return <span>{initial || '—'}</span>
   return (
     <div className="date-input">
       <input className="prop-input" value={text} placeholder={t('date.ph')} onChange={(e) => setText(e.target.value)}
@@ -79,6 +82,7 @@ export function CharacterInfo({ worldId, characterId, onOpenEntity, children }: 
   }, [worldId, characterId])
   const [viewing, setViewing] = useState(false)
   const { busy, run } = useBusy()
+  const { edit } = useAccess()
   const c = data.data?.character
 
   const setCharacter = (saved: Character) => data.setData((prev) => ({ ...prev!, character: saved }))
@@ -103,20 +107,20 @@ export function CharacterInfo({ worldId, characterId, onOpenEntity, children }: 
         {c.has_portrait
           ? <button type="button" className="portrait-btn" onClick={() => setViewing(true)} aria-label={t('cf.viewPortrait')}><img src={portrait} alt={c.name} /></button>
           : <div className="portrait-empty">{c.name[0]}</div>}
-        <div className="portrait-acts">
+        {edit && <div className="portrait-acts">
           <CropUpload aspect={1} outputWidth={900} className="link" onUpload={async (file) => {
             try { setCharacter(await charactersApi.uploadPortrait(worldId, c.id, file)) } catch (err) { notify(errorText(err), 'error') }
           }}>{c.has_portrait ? t('cf.changePortrait') : t('cf.uploadPortrait')}</CropUpload>
           {c.has_portrait && <button className="link" onClick={() => void run(async () => {
             try { await charactersApi.removePortrait(worldId, c.id); setCharacter({ ...c, has_portrait: false }) } catch (err) { notify(errorText(err), 'error') }
           })}>{t('cf.removePortrait')}</button>}
-        </div>
+        </div>}
         {viewing && <Lightbox src={portrait} alt={c.name} onClose={() => setViewing(false)} />}
       </div>
 
       <InfoSection title={t('info.characteristics')}>
         <InfoRow label={t('cf.status')}>
-          <select className="info-select" value={c.status} disabled={busy} onChange={(e) => changeStatus(e.target.value as CharacterStatus)}>
+          <select className="info-select" value={c.status} disabled={busy || !edit} onChange={(e) => changeStatus(e.target.value as CharacterStatus)}>
             {STATUSES.map((s) => <option key={s} value={s}>{t('status.' + s)}</option>)}
           </select>
         </InfoRow>
@@ -138,12 +142,13 @@ export function CharacterInfo({ worldId, characterId, onOpenEntity, children }: 
           {c.memberships.map((m) => (
             <span key={m.id} className="tag" style={{ ['--t' as string]: m.faction_color }}>
               <button className="link tag-link" onClick={() => onOpenEntity('faction', m.faction)}>{m.faction_name}</button>{m.role ? ` · ${m.role}` : ''}
-              <button className="icon-btn" aria-label={t('ui.delete')} onClick={() => void run(async () => {
+              {edit && <button className="icon-btn" aria-label={t('ui.delete')} onClick={() => void run(async () => {
                 try { await factionsApi.removeMembership(worldId, m.id); setCharacter({ ...c, memberships: c.memberships.filter((x) => x.id !== m.id) }) } catch (err) { notify(errorText(err), 'error') }
-              })}>×</button>
+              })}>×</button>}
             </span>
           ))}
-          <select className="info-select add" value="" onChange={(e) => {
+          {c.memberships.length === 0 && !edit && <span className="muted">—</span>}
+          {edit && <select className="info-select add" value="" onChange={(e) => {
             const id = Number(e.target.value)
             if (!id) return
             void run(async () => {
@@ -156,7 +161,7 @@ export function CharacterInfo({ worldId, characterId, onOpenEntity, children }: 
           }}>
             <option value="">+ {t('info.addFaction')}</option>
             {data.data?.factions.filter((f) => !c.memberships.some((m) => m.faction === f.id)).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-          </select>
+          </select>}
         </div>
       </InfoSection>
 
@@ -175,6 +180,7 @@ export function FactionInfo({ worldId, factionId, onOpenEntity, children }: {
     return { faction: factions.find((f) => f.id === factionId), members }
   }, [worldId, factionId])
   const f: Faction | undefined = data.data?.faction
+  const { edit } = useAccess()
   if (data.loading && !data.data) return <Loading />
   if (data.error) return <ErrorState error={data.error} onRetry={data.reload} />
   if (!f) return <p className="muted">{t('enc.entityMissing')}</p>
@@ -184,7 +190,7 @@ export function FactionInfo({ worldId, factionId, onOpenEntity, children }: {
     <>
       <InfoSection title={t('info.characteristics')}>
         <InfoRow label={t('ui.color')}>
-          <input className="info-color" type="color" defaultValue={f.color} onBlur={(e) => { if (e.target.value !== f.color) void patch({ color: e.target.value }) }} />
+          <input className="info-color" type="color" defaultValue={f.color} disabled={!edit} onBlur={(e) => { if (e.target.value !== f.color) void patch({ color: e.target.value }) }} />
         </InfoRow>
         {children}
       </InfoSection>
@@ -212,6 +218,7 @@ function InfoRelations({ worldId, entity, onOpenEntity }: { worldId: number; ent
       ...fs.map((f) => ({ key: `faction:${f.id}`, label: f.name })),
     ].filter((o) => o.key !== `${entity.type}:${entity.id}`)
   }, [worldId, entity.type, entity.id])
+  const { edit } = useAccess()
   const [adding, setAdding] = useState(false)
   const [kind, setKind] = useState<RelationshipKind>('family')
   const [target, setTarget] = useState('')
@@ -242,9 +249,9 @@ function InfoRelations({ worldId, entity, onOpenEntity }: { worldId: number; ent
                 {other.type === 'character' || other.type === 'faction'
                   ? <button className="link tag-link" onClick={() => onOpenEntity(other.type as 'character' | 'faction', other.id)}>{other.label}</button>
                   : other.label}
-                <button className="icon-btn" aria-label={t('ui.delete')} onClick={() => void run(async () => {
+                {edit && <button className="icon-btn" aria-label={t('ui.delete')} onClick={() => void run(async () => {
                   try { await relationshipsApi.remove(worldId, rel.id); rels.reload() } catch (err) { notify(errorText(err), 'error') }
-                })}>×</button>
+                })}>×</button>}
               </span>
             ))}
           </span>
@@ -262,9 +269,56 @@ function InfoRelations({ worldId, entity, onOpenEntity }: { worldId: number; ent
           <button className="btn-ghost small" disabled={!target || busy} onClick={add}>{t('ui.add')}</button>
           <button className="link" onClick={() => setAdding(false)}>{t('ui.cancel')}</button>
         </div>
-      ) : (
+      ) : edit && (
         <button className="link add-prop" onClick={() => setAdding(true)}>+ {t('info.addRelation')}</button>
       )}
     </InfoSection>
+  )
+}
+
+/**
+ * Wide banner across the top of a character page (also used on the character's card): an uploaded
+ * image, else the chosen colour, else a colour derived from the name. Editors change it on hover.
+ */
+export function CharacterBanner({ worldId, characterId }: { worldId: number; characterId: number }) {
+  const { t, notify } = useApp()
+  const { edit } = useAccess()
+  const data = useAsync<Character>(() => charactersApi.get(worldId, characterId), [worldId, characterId])
+  const { busy, run } = useBusy()
+  const c = data.data
+  if (!c) return <div className="page-banner" />
+
+  const save = (action: () => Promise<Character>) => void run(async () => {
+    try { data.setData(await action()) } catch (err) { notify(errorText(err), 'error') }
+  })
+  return (
+    <div className="page-banner" style={{ background: bannerBackground(worldId, c) }}>
+      {edit && (
+        <div className="banner-tools">
+          {!c.has_banner && (
+            <label className="banner-tool" title={t('banner.color')}>
+              <input type="color" value={c.banner_color || '#7a3b8f'} disabled={busy}
+                onChange={(e) => data.setData({ ...c, banner_color: e.target.value })}
+                onBlur={(e) => save(() => charactersApi.update(worldId, c.id, { banner_color: e.target.value }))} />
+              {t('banner.color')}
+            </label>
+          )}
+          {c.banner_color && !c.has_banner && (
+            <button className="banner-tool" disabled={busy} onClick={() => save(() => charactersApi.update(worldId, c.id, { banner_color: '' }))}>
+              {t('banner.resetColor')}
+            </button>
+          )}
+          <CropUpload aspect={5} outputWidth={1600} className="banner-tool" onUpload={async (file) => {
+            try { data.setData(await charactersApi.uploadBanner(worldId, c.id, file)) } catch (err) { notify(errorText(err), 'error') }
+          }}>{c.has_banner ? t('banner.change') : t('banner.upload')}</CropUpload>
+          {c.has_banner && (
+            <button className="banner-tool" disabled={busy} onClick={() => save(async () => {
+              await charactersApi.removeBanner(worldId, c.id)
+              return { ...c, has_banner: false }
+            })}>{t('banner.remove')}</button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { RefObject } from 'react'
 import { ApiError } from './api/client'
 
 export type AsyncState<T> = {
@@ -66,4 +67,23 @@ export function useBusy() {
 export function errorText(err: unknown): string {
   if (err instanceof ApiError) return err.message
   return err instanceof Error ? err.message : String(err)
+}
+
+/**
+ * The last non-empty text selection made inside the element (editor or reader), kept while the
+ * user moves on to type a comment elsewhere. `clear` forgets it once it has been used.
+ */
+export function useSelectionQuote(container: RefObject<HTMLElement | null>, enabled: boolean) {
+  const [quote, setQuote] = useState('')
+  useEffect(() => {
+    if (!enabled) return
+    const onChange = () => {
+      const selection = document.getSelection()
+      const text = selection?.toString().trim() ?? ''
+      if (text && selection?.anchorNode && container.current?.contains(selection.anchorNode)) setQuote(text.slice(0, 500))
+    }
+    document.addEventListener('selectionchange', onChange)
+    return () => document.removeEventListener('selectionchange', onChange)
+  }, [container, enabled])
+  return { quote, clear: useCallback(() => setQuote(''), []) }
 }

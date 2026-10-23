@@ -28,6 +28,8 @@ class Page(models.Model):
     content = models.JSONField(default=empty_document)
     plain_text = models.TextField(blank=True, default="")
     revision = models.PositiveIntegerField(default=1)
+    is_public = models.BooleanField(default=False)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     character = models.OneToOneField(Character, null=True, blank=True, on_delete=models.SET_NULL, related_name="page")
     faction = models.OneToOneField(Faction, null=True, blank=True, on_delete=models.SET_NULL, related_name="page")
     lore_entry = models.OneToOneField(LoreEntry, null=True, blank=True, on_delete=models.SET_NULL, related_name="page")

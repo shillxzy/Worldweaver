@@ -1,3 +1,4 @@
+import { useAccess } from '../access'
 import { useEffect, useMemo, useState } from 'react'
 import { analysisApi } from '../api/analysis'
 import { chaptersApi } from '../api/chapters'
@@ -19,6 +20,7 @@ const EVIDENCE_SECTION: Partial<Record<Evidence['source_type'], Section>> = {
 
 export default function Analysis({ book }: { book: Book }) {
   const { t, notify } = useApp()
+  const { edit } = useAccess()
   const jobs = useAsync((signal) => analysisApi.jobs({ book: book.id }, signal).then((p) => p.results), [book.id])
   const ai = useAsync<AIStatus>((signal) => analysisApi.aiStatus(signal), [])
   const chapters = useAsync<ChapterSummary[]>((signal) => chaptersApi.list(book.id, signal), [book.id])
@@ -59,6 +61,11 @@ export default function Analysis({ book }: { book: Book }) {
   const cancel = (job: AnalysisJob) => void run(async () => {
     try { await analysisApi.cancel(job.id); jobs.reload() } catch (err) { notify(errorText(err), 'error') }
   })
+
+  if (!edit) {
+    // Checks and their findings are working tools of the people who edit the text.
+    return <><Header title={t('s.analysis')} sub={t('an.sub')} /><Empty title={t('ro.analysisTitle')} text={t('ro.analysisText')} /></>
+  }
 
   return (
     <>

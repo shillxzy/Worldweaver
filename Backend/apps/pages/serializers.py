@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from apps.books.documents import document_stats, validate_document
+from apps.common.users import display_name
 
 from .models import Page, PageProperty, PageTemplate
 from .services import clean_property_value
@@ -16,8 +17,9 @@ class PageListSerializer(serializers.ModelSerializer):
         model = Page
         fields = [
             "id", "title", "icon", "page_type", "parent", "sort_order", "aliases", "has_children", "has_cover",
-            "entity_type", "entity_id", "updated_at",
+            "entity_type", "entity_id", "is_public", "updated_at",
         ]
+        read_only_fields = ["is_public"]
 
     def get_has_cover(self, obj) -> bool:
         return bool(obj.cover)
@@ -60,10 +62,16 @@ class PageSerializer(PageListSerializer):
     aliases = StringListField(required=False, max_length=30)
     properties = PropertySerializer(many=True, read_only=True)
     base_revision = serializers.IntegerField(write_only=True, required=False, min_value=1)
+    updated_by_name = serializers.SerializerMethodField()
 
     class Meta(PageListSerializer.Meta):
-        fields = PageListSerializer.Meta.fields + ["content", "plain_text", "revision", "properties", "base_revision", "created_at"]
-        read_only_fields = ["parent", "sort_order", "plain_text", "revision", "created_at"]
+        fields = PageListSerializer.Meta.fields + [
+            "content", "plain_text", "revision", "properties", "base_revision", "updated_by_name", "created_at",
+        ]
+        read_only_fields = ["parent", "sort_order", "plain_text", "revision", "is_public", "created_at"]
+
+    def get_updated_by_name(self, obj) -> str:
+        return display_name(obj.updated_by)
 
     def validate_title(self, value):
         value = value.strip()

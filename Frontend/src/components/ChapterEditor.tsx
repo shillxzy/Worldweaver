@@ -397,7 +397,7 @@ export default function ChapterEditor({ bookId, worldId, chapter: initial, onMet
                   try { const d = await chaptersApi.version(bookId, chapter.id, v.id); setPreview({ id: v.id, text: d.plain_text }) } catch (err) { notify(errorText(err), 'error') }
                 })}>
                   <b>{new Date(v.created_at).toLocaleString()}</b>
-                  <small>{t('ver.' + v.reason)} · {v.word_count} {t('ov.words')} · r{v.revision}</small>
+                  <small>{t('ver.' + v.reason)} · {v.word_count} {t('ov.words')} · r{v.revision}{v.author_name ? ` · ${v.author_name}` : ''}</small>
                 </button>
               ))}
             </div>

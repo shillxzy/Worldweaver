@@ -13,7 +13,7 @@ from apps.analysis.engine.mentions import MentionMatcher
 from apps.books.models import Chapter
 from apps.common.exceptions import Conflict
 from apps.common.images import clear_image, image_response, replace_image
-from apps.common.scoping import WorldScopedMixin, parse_id
+from apps.common.scoping import WorldScopedMixin, accessible_worlds, parse_id
 from apps.worlds.models import Character, Faction, LoreEntry
 
 from .models import Page, PageLink, PageProperty, PageTemplate
@@ -25,7 +25,7 @@ from .serializers import (
     PropertySerializer,
     TemplateSerializer,
 )
-from .services import create_page, delete_page, move_page, page_for_record, rebuild_links, sync_entity
+from .services import create_page, delete_page, fuzzy_page_ids, move_page, page_for_record, rebuild_links, sync_entity
 from .templates import BUILTIN_TEMPLATES
 
 
@@ -98,6 +98,8 @@ class PageViewSet(WorldScopedMixin, viewsets.ModelViewSet):
                 PageTemplate.objects.filter(owner=request.user).filter(Q(world=world) | Q(world__isnull=True)), pk=data["user_template"]
             )
         page = create_page(world, data.get("title", ""), parent, template or None, user_template, data.get("page_type"), data.get("icon"))
+        Page.objects.filter(pk=page.pk).update(updated_by=request.user)
+        page.updated_by = request.user
         rebuild_links(page, PageLink.Origin.CONTENT)
         return Response(page_detail(page, self.get_serializer_context()), status=status.HTTP_201_CREATED)
 
@@ -117,7 +119,7 @@ class PageViewSet(WorldScopedMixin, viewsets.ModelViewSet):
                     raise Conflict(f"Сторінку змінено в іншому місці (ревізія {page.revision}, у вас {base_revision}).")
                 if data["content"] != page.content:
                     data["revision"] = page.revision + 1
-            page = serializer.save()
+            page = serializer.save(updated_by=request.user)
             if "content" in data:
                 rebuild_links(page, PageLink.Origin.CONTENT)
             sync_entity(page)
@@ -146,9 +148,14 @@ class PageViewSet(WorldScopedMixin, viewsets.ModelViewSet):
         """Fast title/alias search for the link picker (no content search)."""
         q = request.query_params.get("q", "").strip()[:100]
         qs = self.get_queryset()
-        if q:
-            qs = qs.filter(Q(title__icontains=q) | Q(aliases_text__icontains=q))
-        return Response(PageListSerializer(qs.order_by("title")[:20], many=True).data)
+        if not q:
+            return Response(PageListSerializer(qs.order_by("title")[:20], many=True).data)
+        exact = list(qs.filter(Q(title__icontains=q) | Q(aliases_text__icontains=q)).order_by("title")[:20])
+        if len(exact) < 20:
+            # Inflected selections ("Джонатаном Андерсоном") still find "Джонатан Андерсон".
+            ids = fuzzy_page_ids(qs.exclude(pk__in=[p.pk for p in exact]), q, 20 - len(exact))
+            exact += sorted(qs.filter(pk__in=ids), key=lambda p: ids.index(p.pk))
+        return Response(PageListSerializer(exact, many=True).data)
 
     @extend_schema(parameters=[OpenApiParameter("type", str), OpenApiParameter("id", int)], responses=PageListSerializer)
     @action(detail=False, methods=["get"], url_path="by-entity")
@@ -264,7 +271,7 @@ class RelevantPagesView(APIView):
     @extend_schema(responses=None)
     def get(self, request, book_pk, chapter_pk):
         chapter = get_object_or_404(
-            Chapter.objects.select_related("book__world").filter(book__world__owner=request.user, book_id=book_pk), pk=chapter_pk
+            Chapter.objects.select_related("book__world").filter(book__world__in=accessible_worlds(request.user), book_id=book_pk), pk=chapter_pk
         )
         pages = list(Page.objects.filter(world=chapter.book.world).only("id", "title", "icon", "page_type", "aliases"))
         matcher = MentionMatcher([(p.id, [p.title, *p.aliases]) for p in pages])

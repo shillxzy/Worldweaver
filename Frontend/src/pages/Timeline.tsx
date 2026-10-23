@@ -12,6 +12,7 @@ import Header from '../components/Header'
 import { Confirm, Empty, ErrorState, FieldError, Loading, Modal } from '../components/Ui'
 import { errorText, useAsync, useBusy } from '../hooks'
 import { useApp } from '../settings-context'
+import { useAccess } from '../access'
 
 const ROLES: ParticipantRole[] = ['participant', 'mentioned', 'posthumous']
 const num = (v: string | null) => (v === null ? '' : String(Number(v)))
@@ -27,6 +28,7 @@ function useWorldRefs(worldId: number, bookId: number) {
 
 export default function Timeline({ book }: { book: Book }) {
   const { t } = useApp()
+  const { edit } = useAccess()
   const worldId = book.world
   const data = useAsync(async (signal) => {
     const [events, chronology, dependencies] = await Promise.all([
@@ -54,12 +56,13 @@ export default function Timeline({ book }: { book: Book }) {
     <>
       <div className="page-head">
         <Header title={t('s.timeline')} sub={t('tl.sub')} />
-        <button className="btn" onClick={() => setEditing({})}>+ {t('tl.add')}</button>
+        {edit && <button className="btn" onClick={() => setEditing({})}>+ {t('tl.add')}</button>}
       </div>
       <ErrorState error={data.error} onRetry={data.reload} />
       {data.data?.chronology.has_cycle && <p className="field-error">{t('tl.cycle')}</p>}
       {data.loading && !data.data ? <Loading /> : ordered.length === 0 ? (
-        <Empty title={t('tl.emptyTitle')} text={t('tl.emptyText')} action={<button className="btn" onClick={() => setEditing({})}>+ {t('tl.add')}</button>} />
+        <Empty title={t('tl.emptyTitle')} text={edit ? t('tl.emptyText') : undefined}
+          action={edit ? <button className="btn" onClick={() => setEditing({})}>+ {t('tl.add')}</button> : undefined} />
       ) : (
         <div className="timeline">
           {ordered.map((e) => {
@@ -93,6 +96,7 @@ function EventForm({ book, event, events, dependencies, onClose, onSaved }: {
   onClose: () => void; onSaved: () => void
 }) {
   const { t, notify } = useApp()
+  const { edit } = useAccess()
   const worldId = book.world
   const refs = useWorldRefs(worldId, book.id)
   const [form, setForm] = useState({
@@ -138,6 +142,8 @@ function EventForm({ book, event, events, dependencies, onClose, onSaved }: {
   return (
     <Modal title={event ? event.title : t('tl.add')} onClose={onClose} wide>
       <form className="form" onSubmit={submit}>
+        {/* Readers see the same form, but every field is disabled and nothing can be saved. */}
+        <fieldset className="ro-fieldset" disabled={!edit}>
         <label>{t('ui.title')}<input className="field" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} autoFocus /></label>
         <label>{t('ui.description')}<textarea className="field" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
         <div className="row2">
@@ -199,12 +205,13 @@ function EventForm({ book, event, events, dependencies, onClose, onSaved }: {
             </div>
           </fieldset>
         )}
+        </fieldset>
         {error && <p className="field-error">{error.details ? t('ui.checkFields') : error.message}</p>}
         <div className="acts">
-          {event && <button type="button" className="btn-ghost danger-text" onClick={() => setDeleting(true)}>{t('ui.delete')}</button>}
+          {event && edit && <button type="button" className="btn-ghost danger-text" onClick={() => setDeleting(true)}>{t('ui.delete')}</button>}
           <span className="spacer" />
-          <button type="button" className="btn-ghost" onClick={onClose}>{t('ui.cancel')}</button>
-          <button className="btn" disabled={busy}>{t('ui.save')}</button>
+          <button type="button" className="btn-ghost" onClick={onClose}>{edit ? t('ui.cancel') : t('ui.close')}</button>
+          {edit && <button className="btn" disabled={busy}>{t('ui.save')}</button>}
         </div>
       </form>
       {deleting && event && (

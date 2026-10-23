@@ -128,3 +128,27 @@
 .entity-more[open] { display: flex; flex-direction: column; gap: 10px; }
 .entity-more[open] summary { margin-bottom: 4px; }
 .enc-side[hidden] { display: none; }
+
+/* The tree never scrolls sideways: long titles are cut with an ellipsis, creation stays at the bottom. */
+.enc-side { overflow-x: hidden; scrollbar-width: thin; }
+.page-tree, .tree-row { min-width: 0; max-width: 100%; }
+.tree-root-drop { position: sticky; bottom: 0; background: var(--bg); }
+
+/* Link picker: existing page or a new one */
+.link-selected { margin: 0; font-size: 14px; }
+.link-selected b { color: var(--text-h); }
+.link-part { display: flex; flex-direction: column; gap: 8px; }
+.link-part + .link-part { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+.link-part h4 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-h); }
+.link-part .picker-list { max-height: 220px; }
+.link-types { display: flex; flex-wrap: wrap; gap: 6px; }
+.type-chip { border: 1px solid var(--border); background: var(--side); color: var(--text); border-radius: 20px; padding: 4px 11px; font-size: 13px; }
+.type-chip:hover { border-color: var(--text); }
+.type-chip.on { border-color: var(--accent); background: var(--accent-bg); color: var(--text-h); }
+.link-create { align-self: flex-start; }
+
+/* Encyclopedia home: no tree (the list below shows every page), creation at the top. */
+.enc-layout.no-tree { grid-template-columns: minmax(0, 1fr); }
+.enc-home-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.enc-home-head h1 { margin: 0; }
+.enc-home-head .sub { margin: 6px 0 0; }

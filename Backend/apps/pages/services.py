@@ -1,6 +1,7 @@
 """Page domain logic: entity sync, link extraction, property validation, tree operations."""
 import copy
 import math
+import re
 
 from django.db import transaction
 from django.db.models import Max
@@ -14,6 +15,33 @@ from .templates import BUILTIN_TEMPLATES, LORE_CATEGORY_BY_TYPE, PAGE_TYPE_BY_LO
 
 MAX_PROPERTIES = 60
 MAX_TAGS = 50
+
+
+# --- lookup -------------------------------------------------------------------------------
+
+WORD_RE = re.compile(r"[\w'’ʼ-]+")
+
+
+def _stem(word):
+    """Crude stem for Ukrainian inflection: drop up to three trailing letters, keep at least three."""
+    return word[: max(3, len(word) - 3)]
+
+
+def fuzzy_page_ids(qs, query, limit):
+    """Pages whose title or alias words start with the stem of every query word
+    ("Джонатаном Андерсоном" -> "Джонатан Андерсон"). Matching is done in Python with casefold,
+    so Cyrillic case-insensitivity does not depend on the database."""
+    stems = [_stem(w) for w in WORD_RE.findall(query.casefold()) if len(w) >= 3]
+    if not stems:
+        return []
+    found = []
+    for pk, title, aliases in qs.values_list("pk", "title", "aliases_text"):
+        for name in [title, *aliases.splitlines()]:
+            words = WORD_RE.findall(name.casefold())
+            if all(any(w.startswith(s) for w in words) for s in stems):
+                found.append((abs(len(name) - len(query)), title.casefold(), pk))
+                break
+    return [pk for *_, pk in sorted(found)[:limit]]
 
 
 # --- properties ---------------------------------------------------------------------------

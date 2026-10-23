@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useAccess } from '../access'
 import { pagesApi } from '../api/pages'
 import type { DateValue, PageProperty, PageSummary, PropertyKind } from '../api/types'
 import { errorText } from '../hooks'
+import { parseWorldDate } from '../worldDate'
 import { useApp } from '../settings-context'
 import LinkPicker from './LinkPicker'
 
@@ -22,6 +24,7 @@ export default function PropertyList({ worldId, pageId, properties, pages, onCha
   const [menu, setMenu] = useState<number | null>(null)
   const [picking, setPicking] = useState<PageProperty | null>(null)
   const titleOf = (id: number) => pages.find((p) => p.id === id)
+  const { edit } = useAccess()
 
   const update = (prop: PageProperty, data: Partial<Pick<PageProperty, 'label' | 'kind' | 'value'>>) =>
     pagesApi.updateProperty(worldId, pageId, prop.id, data)
@@ -71,13 +74,15 @@ export default function PropertyList({ worldId, pageId, properties, pages, onCha
           onBlur={(e) => { const v = e.target.value.trim(); const n = v === '' ? null : Number(v); if (n !== prop.value && (n === null || Number.isFinite(n))) void update(prop, { value: n }) }} />
       case 'date': {
         const d = (prop.value as DateValue | null) ?? { label: '', key: null }
+        // One free-text field ("19 жовтня 1999", "1999", "212 рік"); the sortable key is derived from the text.
         return (
-          <span className="prop-date">
-            <input className="prop-input" defaultValue={d.label} placeholder={t('time.label')}
-              onBlur={(e) => { if (e.target.value !== d.label) void update(prop, { value: { ...d, label: e.target.value } }) }} />
-            <input className="prop-input narrow" type="number" defaultValue={d.key ?? ''} placeholder={t('enc.dateKey')} title={t('enc.dateKeyHint')}
-              onBlur={(e) => { const k = e.target.value === '' ? null : Number(e.target.value); if (k !== d.key) void update(prop, { value: { ...d, key: k } }) }} />
-          </span>
+          <input className="prop-input" defaultValue={d.label || (d.key !== null ? String(d.key) : '')} placeholder={t('date.ph')}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+            onBlur={(e) => {
+              const label = e.target.value.trim()
+              if (label === d.label) return
+              void update(prop, { value: label ? { label, key: parseWorldDate(label).key } : null })
+            }} />
         )
       }
       case 'tags': {
@@ -116,6 +121,8 @@ export default function PropertyList({ worldId, pageId, properties, pages, onCha
           onBlur={(e) => { const v = e.target.value; if (v !== (prop.value ?? '')) void update(prop, { value: v || null }) }} />
     }
   }
+
+  if (!edit) return <ReadOnlyProps properties={properties} titleOf={titleOf} onOpenPage={onOpenPage} />
 
   return (
     <div className="props">
@@ -164,6 +171,37 @@ export default function PropertyList({ worldId, pageId, properties, pages, onCha
           } else void update(prop, { value: p.id })
         }} />
       )}
+    </div>
+  )
+}
+
+/** Properties for readers: filled values only, page references stay clickable. */
+function ReadOnlyProps({ properties, titleOf, onOpenPage }: {
+  properties: PageProperty[]; titleOf: (id: number) => PageSummary | undefined; onOpenPage: (id: number) => void
+}) {
+  const { t } = useApp()
+  const value = (prop: PageProperty) => {
+    const v = prop.value
+    if (prop.kind === 'checkbox') return v === true ? '✓' : null
+    if (prop.kind === 'date') return (v as DateValue | null)?.label || null
+    if (prop.kind === 'tags') return Array.isArray(v) && v.length ? <span className="prop-tags">{(v as string[]).map((x) => <span key={x} className="tag">{x}</span>)}</span> : null
+    if (prop.kind === 'page' || prop.kind === 'pages') {
+      const ids = prop.kind === 'page' ? (typeof v === 'number' ? [v] : []) : Array.isArray(v) ? (v as number[]) : []
+      return ids.length ? (
+        <span className="prop-tags">
+          {ids.map((id) => <button key={id} className="link tag-link" onClick={() => onOpenPage(id)}>{titleOf(id)?.icon} {titleOf(id)?.title ?? `#${id}`}</button>)}
+        </span>
+      ) : null
+    }
+    return v === null || v === undefined || v === '' ? null : String(v)
+  }
+  const rows = properties.map((p) => ({ p, v: value(p) })).filter((r) => r.v !== null)
+  if (rows.length === 0) return <p className="muted">{t('ro.noProps')}</p>
+  return (
+    <div className="props">
+      {rows.map(({ p, v }) => (
+        <div key={p.id} className="info-row"><span className="info-label">{p.label}</span><div className="info-value">{v}</div></div>
+      ))}
     </div>
   )
 }

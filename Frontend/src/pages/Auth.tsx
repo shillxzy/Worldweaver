@@ -8,7 +8,7 @@ import { useBusy } from '../hooks'
 import { P } from '../icons'
 import { useApp } from '../settings-context'
 
-export default function Auth({ onEnter }: { onEnter: (user: User) => void }) {
+export default function Auth({ onEnter, notice }: { onEnter: (user: User) => void; notice?: string }) {
   const { t } = useApp()
   const [mode, setMode] = useState<'register' | 'login'>('login')
   const [name, setName] = useState('')
@@ -40,6 +40,7 @@ export default function Auth({ onEnter }: { onEnter: (user: User) => void }) {
         <form className="auth-box" onSubmit={submit} noValidate>
           <h1>{t(register ? 'auth.title' : 'auth.loginTitle')}</h1>
           <p>{t(register ? 'auth.sub' : 'auth.loginSub')}</p>
+          {notice && <p className="auth-notice">{notice}</p>}
           {register && (
             <>
               <input className="field" placeholder={t('auth.name')} value={name} autoComplete="name" required onChange={(e) => setName(e.target.value)} />

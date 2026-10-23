@@ -1,6 +1,8 @@
 from django.db import transaction
 from rest_framework import serializers
 
+from apps.common.scoping import EDIT, accessible_worlds
+from apps.common.users import display_name
 from apps.worlds.models import World
 
 from .documents import document_stats, validate_document
@@ -12,7 +14,7 @@ class OwnedWorldField(serializers.PrimaryKeyRelatedField):
         request = self.context.get("request")
         if request is None or not request.user.is_authenticated:
             return World.objects.none()
-        return World.objects.filter(owner=request.user)
+        return accessible_worlds(request.user, EDIT)
 
 
 class BookSerializer(serializers.ModelSerializer):
@@ -24,15 +26,20 @@ class BookSerializer(serializers.ModelSerializer):
     word_count = serializers.IntegerField(read_only=True, default=0)
     progress = serializers.SerializerMethodField()
     has_cover = serializers.SerializerMethodField()
+    my_role = serializers.CharField(read_only=True, default="owner")
+    owner_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Book
         fields = [
             "id", "world", "world_name", "new_world_name", "title", "description", "genre", "status",
             "manuscript_format", "accent", "has_cover", "chapters_count", "done_chapters", "word_count", "progress",
-            "created_at", "updated_at",
+            "my_role", "owner_name", "is_public", "created_at", "updated_at",
         ]
-        read_only_fields = ["created_at", "updated_at"]
+        read_only_fields = ["is_public", "created_at", "updated_at"]
+
+    def get_owner_name(self, obj) -> str:
+        return display_name(obj.world.owner)
 
     def get_has_cover(self, obj) -> bool:
         return bool(obj.cover)
@@ -67,13 +74,19 @@ class BookSerializer(serializers.ModelSerializer):
 
 
 class ChapterListSerializer(serializers.ModelSerializer):
+    updated_by_name = serializers.SerializerMethodField()
+
     class Meta:
         model = Chapter
         fields = [
             "id", "book", "title", "order", "word_count", "status", "revision", "story_time_key",
-            "story_time_label", "is_flashback", "narrator_unreliable", "created_at", "updated_at",
+            "story_time_label", "is_flashback", "narrator_unreliable", "is_public", "updated_by_name",
+            "created_at", "updated_at",
         ]
-        read_only_fields = ["book", "order", "word_count", "revision", "created_at", "updated_at"]
+        read_only_fields = ["book", "order", "word_count", "revision", "is_public", "created_at", "updated_at"]
+
+    def get_updated_by_name(self, obj) -> str:
+        return display_name(obj.updated_by)
 
 
 class ChapterSerializer(ChapterListSerializer):
@@ -97,9 +110,14 @@ class ChapterSerializer(ChapterListSerializer):
 
 
 class ChapterVersionSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+
     class Meta:
         model = ChapterVersion
-        fields = ["id", "chapter", "revision", "title", "word_count", "reason", "created_at"]
+        fields = ["id", "chapter", "revision", "title", "word_count", "reason", "author_name", "created_at"]
+
+    def get_author_name(self, obj) -> str:
+        return display_name(obj.author)
 
 
 class ChapterVersionDetailSerializer(ChapterVersionSerializer):

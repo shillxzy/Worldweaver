@@ -16,7 +16,7 @@ from rest_framework.views import APIView
 
 from apps.common.exceptions import Conflict
 from apps.common.images import clear_image, image_response, replace_image
-from apps.common.scoping import parse_id
+from apps.common.scoping import EDIT, MANAGE, VIEW, accessible_worlds, annotate_role, method_role, parse_id, require_role
 
 from .docx_io import export_docx, parse_docx, blocks_to_document, choose_split_level, heading_levels, plan_chapters
 from .documents import document_stats
@@ -35,8 +35,8 @@ from .serializers import (
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
-def owned_books(user):
-    return Book.objects.filter(world__owner=user)
+def accessible_books(user, min_role=VIEW):
+    return Book.objects.filter(world__in=accessible_worlds(user, min_role))
 
 
 def safe_filename(title, fallback="worldweaver"):
@@ -63,8 +63,8 @@ class BookViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return (
-            owned_books(self.request.user)
-            .select_related("world")
+            annotate_role(accessible_books(self.request.user), self.request.user, "world")
+            .select_related("world", "world__owner__profile")
             .annotate(
                 chapters_count=Count("chapters", distinct=True),
                 done_chapters=Count("chapters", filter=Q(chapters__status=Chapter.Status.DONE), distinct=True),
@@ -72,6 +72,14 @@ class BookViewSet(viewsets.ModelViewSet):
             )
             .order_by("-updated_at", "id")
         )
+
+    # Deleting a book is structural (admins and the owner); exporting copies the whole manuscript (editors+).
+    action_roles = {"destroy": MANAGE, "export": EDIT}
+
+    def get_object(self):
+        book = super().get_object()
+        require_role(self.request.user, book.world, self.action_roles.get(self.action) or method_role(self.request))
+        return book
 
     @extend_schema(responses={(200, DOCX_MIME): bytes})
     @action(detail=True, methods=["get"])
@@ -112,13 +120,21 @@ class ChapterViewSet(viewsets.ModelViewSet):
     search_fields = ["title", "plain_text"]
     filterset_fields = ["status"]
 
+    # Version history and DOCX export are working tools of the writing team (editors+).
+    action_roles = {"export": EDIT, "versions": EDIT, "version_detail": EDIT}
+
     def get_book(self):
         if not hasattr(self, "_book"):
-            self._book = get_object_or_404(owned_books(self.request.user), pk=parse_id(self.kwargs["book_pk"]) or 0)
+            self._book = get_object_or_404(accessible_books(self.request.user).select_related("world"), pk=parse_id(self.kwargs["book_pk"]) or 0)
+            require_role(self.request.user, self._book.world, self.action_roles.get(self.action) or method_role(self.request))
         return self._book
 
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        self.get_book()
+
     def get_queryset(self):
-        qs = Chapter.objects.filter(book=self.get_book())
+        qs = Chapter.objects.filter(book=self.get_book()).select_related("updated_by__profile")
         if self.action == "list":
             qs = qs.defer("content", "plain_text")
         return qs.order_by("order", "id")
@@ -132,7 +148,7 @@ class ChapterViewSet(viewsets.ModelViewSet):
             last = Chapter.objects.select_for_update().filter(book=book).aggregate(m=Max("order"))["m"]
             serializer.validated_data.pop("base_revision", None)
             serializer.validated_data.pop("snapshot", None)
-            serializer.save(book=book, order=0 if last is None else last + 1)
+            serializer.save(book=book, order=0 if last is None else last + 1, updated_by=self.request.user)
             Book.objects.filter(pk=book.pk).update(updated_at=timezone.now())
 
     def update(self, request, *args, **kwargs):
@@ -153,7 +169,7 @@ class ChapterViewSet(viewsets.ModelViewSet):
                 if data["content"] != chapter.content:
                     maybe_snapshot(chapter, ChapterVersion.Reason.MANUAL if snapshot else ChapterVersion.Reason.AUTOSAVE, force=snapshot)
                     data["revision"] = chapter.revision + 1
-            serializer.save()
+            serializer.save(updated_by=self.request.user)
             Book.objects.filter(pk=chapter.book_id).update(updated_at=timezone.now())
         return Response(serializer.data)
 
@@ -186,7 +202,7 @@ class ChapterViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def versions(self, request, book_pk=None, pk=None):
         chapter = self.get_object()
-        return Response(ChapterVersionSerializer(chapter.versions.defer("content", "plain_text")[:100], many=True).data)
+        return Response(ChapterVersionSerializer(chapter.versions.select_related("author__profile").defer("content", "plain_text")[:100], many=True).data)
 
     @extend_schema(responses=ChapterVersionDetailSerializer)
     @action(detail=True, methods=["get"], url_path=r"versions/(?P<version_pk>\d{1,18})")
@@ -206,6 +222,7 @@ class ChapterViewSet(viewsets.ModelViewSet):
             chapter.plain_text = version.plain_text
             chapter.word_count = version.word_count
             chapter.revision += 1
+            chapter.updated_by = request.user
             chapter.save()
         return Response(ChapterSerializer(chapter).data)
 
@@ -230,6 +247,7 @@ def maybe_snapshot(chapter, reason, force=False):
         plain_text=chapter.plain_text,
         word_count=chapter.word_count,
         reason=reason,
+        author_id=chapter.updated_by_id,  # who wrote the text being preserved
     )
     stale = chapter.versions.order_by("-created_at", "-id").values_list("id", flat=True)[settings.WW_MAX_VERSIONS_PER_CHAPTER:]
     ChapterVersion.objects.filter(id__in=list(stale)).delete()
@@ -282,7 +300,8 @@ class DocxImportView(APIView):
         serializer = DocxImportSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        book = get_object_or_404(owned_books(request.user), pk=parse_id(data["book"]) or 0)
+        book = get_object_or_404(accessible_books(request.user), pk=parse_id(data["book"]) or 0)
+        require_role(request.user, book.world, EDIT)
         upload = data["file"]
         if upload.size > settings.WW_MAX_DOCX_BYTES:
             return _too_large()
@@ -296,6 +315,7 @@ class DocxImportView(APIView):
                 chapter.content = blocks_to_document(blocks)
                 chapter.plain_text, chapter.word_count = document_stats(chapter.content)
                 chapter.revision += 1
+                chapter.updated_by = request.user
                 chapter.save()
                 created = [chapter]
             else:
@@ -312,7 +332,8 @@ class DocxImportView(APIView):
                 for offset, (title, content) in enumerate(parts):
                     text, words = document_stats(content)
                     created.append(Chapter.objects.create(
-                        book=book, title=title, order=start + offset, content=content, plain_text=text, word_count=words
+                        book=book, title=title, order=start + offset, content=content, plain_text=text, word_count=words,
+                        updated_by=request.user,
                     ))
             Book.objects.filter(pk=book.pk).update(updated_at=timezone.now())
         return Response(ChapterListSerializer(created, many=True).data, status=status.HTTP_201_CREATED)
@@ -322,14 +343,13 @@ class GlobalSearchView(APIView):
     @extend_schema(parameters=[OpenApiParameter("q", str, required=True)], responses=None)
     def get(self, request):
         from apps.worlds.views import search_world
-        from apps.worlds.models import World
 
         query = request.query_params.get("q", "")
         results = []
         if len(query.strip()) >= 2:
-            for book in owned_books(request.user).filter(Q(title__icontains=query.strip()) | Q(description__icontains=query.strip()))[:20]:
+            for book in accessible_books(request.user).filter(Q(title__icontains=query.strip()) | Q(description__icontains=query.strip()))[:20]:
                 results.append({"type": "book", "id": book.id, "title": book.title, "snippet": book.description[:160], "world": book.world_id})
-            for world in World.objects.filter(owner=request.user):
+            for world in accessible_worlds(request.user):
                 for item in search_world(world, query, limit=8)["results"]:
                     item["world"] = world.id
                     results.append(item)

@@ -62,6 +62,13 @@
 | `GET /books/{id}/chapters/{cid}/export/` | Експорт розділу в DOCX |
 | `POST /import/docx/` `file, book, mode, chapter?, split_level?` | `mode`: `new_chapter`, `split_headings`, `replace_chapter`; `split_level` 1–3 (за замовчуванням — найвищий рівень заголовка, що трапляється ≥2 разів; стиль Title не ріже; заголовки без тексту переходять у наступний розділ) |
 | `POST /import/docx/preview/` `file, split_level?` | сухий прогін: `levels`, `split_level`, `suggested_level`, `chapters[{title, word_count, merged, lead_in}]`, нічого не зберігає |
+| `GET /worlds/{id}/members/` · `PATCH/DELETE …/members/{uid}/` · `GET …/members/{uid}/avatar/` | Учасники світу та їхні ролі; `DELETE` своєї id — покинути проєкт (див. docs/COLLABORATION.md) |
+| `POST /worlds/{id}/transfer/` `{user}` | Передати власність учаснику (лише власник; колишній власник стає адміністратором) |
+| `GET/POST /worlds/{id}/invites/` · `DELETE …/invites/{iid}/` | Запрошення: `email?`, `role`, `expires_in_days?`, `max_uses?` (адміністратори й власник); відкликання |
+| `GET /invites/mine/` · `GET /invites/{token}/` · `POST /invites/{token}/accept/` · `POST …/decline/` | Особисті запрошення, перегляд, прийняття, відмова |
+| `/worlds/{id}/comments/` (`?chapter=` / `?page=`) · `GET /worlds/{id}/comment-counts/?book=` | Коментарі до розділів і сторінок (від коментатора); лічильники відкритих обговорень |
+| `GET/PATCH /worlds/{id}/public/` | Публічний сайт (лише власник): `enabled`, `regenerate`, позначки `books` / `chapters` / `pages` `{id: bool}` |
+| `GET /public/{token}/` · `…/chapters/{id}/` · `…/pages/{id}/` · `…/images/{kind}/{id}/` | Анонімний перегляд лише позначених книг, розділів і сторінок |
 | `/boards/` (`?book=` / `?world=`) · `POST /boards/{id}/layout/` | Дошки; збереження позицій/порядку/колонок пакетом |
 | `/boards/{id}/items/` · `/boards/{id}/connections/` | Елементи й зʼєднання дошки |
 | `GET/POST /analysis/` · `GET /analysis/{id}/` | Завдання глибокого аналізу (`kind`: `fragment`, `chapter`, `book`, `book_with_lore`) — 202 |

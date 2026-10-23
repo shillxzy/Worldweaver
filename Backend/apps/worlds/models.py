@@ -35,6 +35,9 @@ class World(models.Model):
     magic_system = models.TextField(blank=True, help_text="Магія або інші системи світу.")
     time_unit_label = models.CharField(max_length=40, blank=True, default="рік")
     calendar_notes = models.TextField(blank=True)
+    # Public read-only site: off by default; only items explicitly marked public are shown.
+    public_enabled = models.BooleanField(default=False)
+    public_token = models.CharField(max_length=64, unique=True, null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -86,6 +89,9 @@ class Character(models.Model):
     death_precision = models.CharField(max_length=12, choices=Precision.choices, default=Precision.UNKNOWN)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.UNKNOWN)
     portrait = models.ImageField(upload_to="portraits/", null=True, blank=True)
+    # Card banner: an uploaded image wins over the colour; with neither, a colour is derived from the name.
+    banner = models.ImageField(upload_to="banners/", null=True, blank=True)
+    banner_color = models.CharField(max_length=7, blank=True, default="", validators=[hex_color])
     facts = models.JSONField(default=list, blank=True, help_text='Список {"label": ..., "value": ...}.')
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { DragEvent } from 'react'
 import type { PageSummary } from '../api/types'
+import { useAccess } from '../access'
 import { useApp } from '../settings-context'
 
 type Props = {
@@ -83,6 +84,7 @@ export default function PageTree({ pages, currentId, storageKey, onOpen, onCreat
     setMenu(null)
   }
 
+  const { edit } = useAccess()
   const render = (parent: number | null, depth: number) => (byParent.get(parent) ?? []).map((page) => {
     const children = byParent.get(page.id) ?? []
     const open = expanded.has(page.id) || ancestors.has(page.id)
@@ -91,7 +93,7 @@ export default function PageTree({ pages, currentId, storageKey, onOpen, onCreat
         <div
           className={'tree-row' + (page.id === currentId ? ' on' : '') + (over === page.id ? ' drop' : '')}
           style={{ paddingLeft: 4 + depth * 14 }}
-          draggable onDragStart={(e) => { setDragging(page.id); e.dataTransfer.effectAllowed = 'move' }}
+          draggable={edit} onDragStart={(e) => { setDragging(page.id); e.dataTransfer.effectAllowed = 'move' }}
           onDragEnd={() => { setDragging(null); setOver(null) }}
           onDragOver={(e) => { if (dragging !== null && dragging !== page.id) { e.preventDefault(); setOver(page.id) } }}
           onDragLeave={() => setOver((o) => (o === page.id ? null : o))}
@@ -102,10 +104,12 @@ export default function PageTree({ pages, currentId, storageKey, onOpen, onCreat
           <button className="tree-title" onClick={() => onOpen(page.id)} title={page.title}>
             <span className="tree-icon">{page.icon || '·'}</span>{page.title}
           </button>
-          <span className="tree-acts">
-            <button className="icon-btn" onClick={() => onCreateChild(page.id)} aria-label={t('enc.addSubpage')} title={t('enc.addSubpage')}>+</button>
-            <button className="icon-btn" onClick={() => setMenu(menu === page.id ? null : page.id)} aria-label={t('enc.more')}>⋯</button>
-          </span>
+          {edit && (
+            <span className="tree-acts">
+              <button className="icon-btn" onClick={() => onCreateChild(page.id)} aria-label={t('enc.addSubpage')} title={t('enc.addSubpage')}>+</button>
+              <button className="icon-btn" onClick={() => setMenu(menu === page.id ? null : page.id)} aria-label={t('enc.more')}>⋯</button>
+            </span>
+          )}
           {menu === page.id && (
             <div className="menu tree-menu" onMouseLeave={() => setMenu(null)}>
               <button onClick={() => shift(page, -1)}>{t('enc.moveUp')}</button>
@@ -123,11 +127,13 @@ export default function PageTree({ pages, currentId, storageKey, onOpen, onCreat
     <nav className="page-tree" aria-label={t('enc.tree')}>
       {pages.length === 0 && <p className="muted">{t('enc.treeEmpty')}</p>}
       {render(null, 0)}
-      <div className={'tree-root-drop' + (over === 'root' ? ' drop' : '')}
-        onDragOver={(e) => { if (dragging !== null) { e.preventDefault(); setOver('root') } }}
-        onDragLeave={() => setOver((o) => (o === 'root' ? null : o))} onDrop={drop('root')}>
-        {dragging !== null ? t('enc.dropRoot') : <button className="link" onClick={() => onCreateChild(null)}>+ {t('enc.newPage')}</button>}
-      </div>
+      {edit && (
+        <div className={'tree-root-drop' + (over === 'root' ? ' drop' : '')}
+          onDragOver={(e) => { if (dragging !== null) { e.preventDefault(); setOver('root') } }}
+          onDragLeave={() => setOver((o) => (o === 'root' ? null : o))} onDrop={drop('root')}>
+          {dragging !== null ? t('enc.dropRoot') : <button className="link" onClick={() => onCreateChild(null)}>+ {t('enc.newPage')}</button>}
+        </div>
+      )}
     </nav>
   )
 }

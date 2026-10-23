@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAccess } from '../access'
 import { booksApi } from '../api/books'
 import type { Book, World } from '../api/types'
 import { worldsApi } from '../api/worlds'
@@ -14,6 +15,7 @@ import { useApp } from '../settings-context'
 
 export default function Overview({ book }: { book: Book }) {
   const { t, refreshBooks, notify } = useApp()
+  const access = useAccess()
   const world = useAsync<World>((signal) => worldsApi.get(book.world, signal), [book.world])
   const [editing, setEditing] = useState<'book' | 'world' | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -46,9 +48,10 @@ export default function Overview({ book }: { book: Book }) {
             <div><b>{book.word_count ?? 0}</b><span>{t('ov.words')}</span></div>
           </div>
           <div className="hero-acts">
-            <button className="btn-ghost" onClick={() => setEditing('book')}><Icon n="pen" />{t('ov.edit')}</button>
-            <button className="btn-ghost" onClick={() => setEditing('world')} disabled={!w}><Icon n="globe" />{t('ov.world')}: {w?.name ?? '…'}</button>
-            <button className="btn-ghost danger-text" onClick={() => setDeleting(true)}><Icon n="trash" />{t('ov.delete')}</button>
+            {access.edit && <button className="btn-ghost" onClick={() => setEditing('book')}><Icon n="pen" />{t('ov.edit')}</button>}
+            {access.edit && <button className="btn-ghost" onClick={() => setEditing('world')} disabled={!w}><Icon n="globe" />{t('ov.world')}: {w?.name ?? '…'}</button>}
+            {access.manage && <button className="btn-ghost danger-text" onClick={() => setDeleting(true)}><Icon n="trash" />{t('ov.delete')}</button>}
+            {!access.edit && <span className="muted">{t('ro.notice').replace('{role}', t('role.' + access.role))}</span>}
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import Icon from '../components/Icon'
 import { Empty, Loading } from '../components/Ui'
 import { navigate, projectPath } from '../router'
 import { useApp } from '../settings-context'
+import { InvitesInbox } from './Join'
 import { accentVars } from '../utils'
 
 export default function Library() {
@@ -18,6 +19,7 @@ export default function Library() {
         <Header title={t('lib.title')} sub={t('lib.sub')} />
         <button className="btn" onClick={() => setCreating(true)}>+ {t('lib.new')}</button>
       </div>
+      <InvitesInbox />
       {booksLoading && books.length === 0 ? <Loading /> : books.length === 0 ? (
         <Empty title={t('lib.emptyTitle')} text={t('lib.emptyText')}
           action={<button className="btn" onClick={() => setCreating(true)}>+ {t('lib.new')}</button>} />
@@ -29,11 +31,14 @@ export default function Library() {
               <div className="bk-info">
                 <h3 className="bk-title">{p.title}</h3>
                 <span className="bk-genre">{p.genre || p.world_name}</span>
-                <div className="bar"><i style={{ width: p.progress + '%' }} /></div>
+                {p.my_role !== 'owner' && (
+                  <span className="bk-shared" title={t('sh.ownerIs').replace('{name}', p.owner_name)}>
+                    <Icon n="users" />{t('lib.sharedBy').replace('{name}', p.owner_name)} · {t('role.' + p.my_role)}
+                  </span>
+                )}
                 <div className="meta">
-                  <span><Icon n="read" />{p.chapters_count}</span>
-                  <span><Icon n="pen" />{p.word_count ?? 0}</span>
-                  <span>{t('lib.read')} {p.progress}%</span>
+                  <span><Icon n="read" />{p.chapters_count} {t('bk.chapters')}</span>
+                  <span><Icon n="pen" />{(p.word_count ?? 0).toLocaleString()} {t('ov.words')}</span>
                 </div>
               </div>
             </button>

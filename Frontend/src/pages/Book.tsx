@@ -1,14 +1,18 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
+import { useAccess } from '../access'
 import { authApi } from '../api/auth'
 import { booksApi } from '../api/books'
 import { chaptersApi } from '../api/chapters'
+import { collabApi } from '../api/collab'
 import type { ImportMode, ImportPreview } from '../api/chapters'
 import type { Book, Chapter, ChapterSummary, UserSettings } from '../api/types'
+import CommentsPanel from '../components/CommentsPanel'
 import CoverArt from '../components/CoverArt'
+import DocView from '../components/DocView'
 import Header from '../components/Header'
 import Icon from '../components/Icon'
 import { Confirm, Empty, ErrorState, Loading, Modal } from '../components/Ui'
-import { errorText, useAsync, useBusy } from '../hooks'
+import { errorText, useAsync, useBusy, useSelectionQuote } from '../hooks'
 import { useApp } from '../settings-context'
 
 // The Tiptap editor is the heaviest dependency; load it only when a chapter is opened for writing.
@@ -16,15 +20,25 @@ const ChapterEditor = lazy(() => import('../components/ChapterEditor'))
 
 export default function BookPage({ book, focus }: { book: Book; focus?: string }) {
   const { t, notify, refreshBooks } = useApp()
+  const access = useAccess()
   const focusChapter = focus?.startsWith('chapter:') ? Number(focus.split(':')[1]) : null
   const [open, setOpen] = useState(focusChapter !== null || sessionStorage.getItem('ww-book-open') === String(book.id))
-  const [mode, setMode] = useState<'write' | 'read'>('write')
+  // Readers and commenters get the reading view; only editors and above open the editor.
+  const [mode, setMode] = useState<'write' | 'read'>(access.edit ? 'write' : 'read')
+  const view = access.edit ? mode : 'read'
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const mainRef = useRef<HTMLDivElement>(null)
+  const selection = useSelectionQuote(mainRef, commentsOpen)
   const [activeId, setActiveId] = useState<number | null>(focusChapter)
   const [importing, setImporting] = useState(false)
   const [deleting, setDeleting] = useState<ChapterSummary | null>(null)
   const { busy, run } = useBusy()
   const chapters = useAsync<ChapterSummary[]>((signal) => chaptersApi.list(book.id, signal), [book.id])
   const prefs = useAsync<UserSettings>(() => authApi.settings(), [])
+  const counts = useAsync<Record<string, number>>(
+    async (signal) => (access.comment ? (await collabApi.commentCounts(book.world, book.id, signal)).chapters : {}),
+    [book.world, book.id, access.comment],
+  )
   const list = chapters.data ?? []
   const activeIdResolved = activeId ?? list[0]?.id ?? null
   const active = useAsync<Chapter | null>(
@@ -81,43 +95,54 @@ export default function BookPage({ book, focus }: { book: Book; focus?: string }
       <div className="page-head">
         <Header title={book.title} sub={`${list.length} ${t('bk.chapters')} · ${book.word_count ?? 0} ${t('ov.words')}`} />
         <div className="head-acts">
-          <div className="seg">
-            <button className={mode === 'write' ? 'on' : ''} onClick={() => setMode('write')}><Icon n="pen" />{t('bk.write')}</button>
-            <button className={mode === 'read' ? 'on' : ''} onClick={() => setMode('read')}><Icon n="read" />{t('bk.read')}</button>
-          </div>
-          <button className="btn-ghost" onClick={() => setImporting(true)}>{t('bk.import')}</button>
-          <button className="btn-ghost" disabled={!list.length} onClick={() => void booksApi.exportDocx(book).catch((err) => notify(errorText(err), 'error'))}>{t('bk.export')}</button>
+          {access.edit && (
+            <div className="seg">
+              <button className={mode === 'write' ? 'on' : ''} onClick={() => setMode('write')}><Icon n="pen" />{t('bk.write')}</button>
+              <button className={mode === 'read' ? 'on' : ''} onClick={() => setMode('read')}><Icon n="read" />{t('bk.read')}</button>
+            </div>
+          )}
+          {access.comment && list.length > 0 && (
+            <button className={'btn-ghost' + (commentsOpen ? ' on' : '')} onClick={() => setCommentsOpen((v) => !v)}>
+              <Icon n="comment" />{t('cm.title')}{counts.data?.[String(activeIdResolved)] ? ` · ${counts.data[String(activeIdResolved)]}` : ''}
+            </button>
+          )}
+          {access.edit && <button className="btn-ghost" onClick={() => setImporting(true)}>{t('bk.import')}</button>}
+          {access.edit && <button className="btn-ghost" disabled={!list.length} onClick={() => void booksApi.exportDocx(book).catch((err) => notify(errorText(err), 'error'))}>{t('bk.export')}</button>}
           <button className="link" onClick={() => setOpen(false)}>{t('bk.close')}</button>
         </div>
       </div>
       <ErrorState error={chapters.error} onRetry={chapters.reload} />
       {chapters.loading && !chapters.data ? <Loading /> : list.length === 0 ? (
-        <Empty title={t('bk.emptyTitle')} text={t('bk.emptyText')}
-          action={<div className="head-acts"><button className="btn" onClick={addChapter} disabled={busy}>+ {t('bk.addChapter')}</button>
-            <button className="btn-ghost" onClick={() => setImporting(true)}>{t('bk.import')}</button></div>} />
+        <Empty title={t('bk.emptyTitle')} text={access.edit ? t('bk.emptyText') : t('ro.emptyBook')}
+          action={access.edit ? <div className="head-acts"><button className="btn" onClick={addChapter} disabled={busy}>+ {t('bk.addChapter')}</button>
+            <button className="btn-ghost" onClick={() => setImporting(true)}>{t('bk.import')}</button></div> : undefined} />
       ) : (
-        <div className="book-layout">
+        <div className={'book-layout' + (commentsOpen ? ' with-comments' : '')}>
           <nav className="chapter-list">
             {list.map((c, i) => (
               <div key={c.id} className={'chapter-item' + (c.id === activeIdResolved ? ' on' : '')}>
-                <button className="chapter-name" onClick={() => setActiveId(c.id)}>
+                <button className="chapter-name" onClick={() => setActiveId(c.id)}
+                  title={c.updated_by_name ? `${t('bk.lastEditedBy')}: ${c.updated_by_name}` : undefined}>
                   <span>{i + 1}. {c.title}</span>
-                  <small>{c.word_count} · {t('chStatus.' + c.status)}{c.is_flashback ? ' · ⟲' : ''}</small>
+                  <small>
+                    {c.word_count} · {t('chStatus.' + c.status)}{c.is_flashback ? ' · ⟲' : ''}
+                    {counts.data?.[String(c.id)] ? <span className="comment-badge" title={t('cm.open')}> · 💬 {counts.data[String(c.id)]}</span> : null}
+                  </small>
                 </button>
-                <div className="chapter-acts">
+                {access.edit && <div className="chapter-acts">
                   <button className="icon-btn" onClick={() => move(i, -1)} disabled={i === 0 || busy} aria-label="up">↑</button>
                   <button className="icon-btn" onClick={() => move(i, 1)} disabled={i === list.length - 1 || busy} aria-label="down">↓</button>
                   <button className="icon-btn" onClick={() => void chaptersApi.exportDocx(book.id, c).catch((err) => notify(errorText(err), 'error'))} aria-label="docx">⤓</button>
                   <button className="icon-btn" onClick={() => setDeleting(c)} aria-label={t('ui.delete')}>×</button>
-                </div>
+                </div>}
               </div>
             ))}
-            <button className="btn-ghost" onClick={addChapter} disabled={busy}>+ {t('bk.addChapter')}</button>
+            {access.edit && <button className="btn-ghost" onClick={addChapter} disabled={busy}>+ {t('bk.addChapter')}</button>}
           </nav>
-          <div className="chapter-main">
+          <div className="chapter-main" ref={mainRef}>
             <ErrorState error={active.error} onRetry={active.reload} />
             {active.loading ? <Loading /> : active.data && (
-              mode === 'write' ? (
+              view === 'write' ? (
                 <Suspense fallback={<Loading />}><ChapterEditor key={`${active.data.id}:${active.data.revision}`} bookId={book.id} worldId={book.world} chapter={active.data}
                   quickEnabled={prefs.data?.quick_checks_enabled ?? true} spellEnabled={prefs.data?.spellcheck_enabled ?? true}
                   onMetaSaved={(c) => chapters.setData((prev) => (prev ?? []).map((x) => (x.id === c.id ? { ...x, ...c } : x)))} /></Suspense>
@@ -128,6 +153,11 @@ export default function BookPage({ book, focus }: { book: Book; focus?: string }
               )
             )}
           </div>
+          {commentsOpen && activeIdResolved && (
+            <CommentsPanel worldId={book.world} target={{ chapter: activeIdResolved }} quote={selection.quote} onQuoteUsed={selection.clear}
+              onClose={() => setCommentsOpen(false)}
+              onCount={(n) => counts.setData((prev) => ({ ...(prev ?? {}), [String(activeIdResolved)]: n }))} />
+          )}
         </div>
       )}
       {importing && (
@@ -148,7 +178,7 @@ function Reader({ chapter, index, total, onPrev, onNext }: { chapter: Chapter; i
     <>
       <div className="paper reader">
         <h2>{chapter.title}</h2>
-        {chapter.plain_text.split(/\n{2,}/).map((p, i) => <p key={i}>{p}</p>)}
+        <DocView doc={chapter.content} />
         <div className="pn">{index + 1} / {total}</div>
       </div>
       <div className="pager">
