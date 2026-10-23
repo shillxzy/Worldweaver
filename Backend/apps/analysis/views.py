@@ -1,7 +1,8 @@
+from django.conf import settings
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -160,3 +161,27 @@ class AIStatusView(APIView):
         pending = AnalysisJob.objects.filter(status=AnalysisJob.Status.PENDING).count()
         running = AnalysisJob.objects.filter(status=AnalysisJob.Status.RUNNING).count()
         return Response({**health, "queue": {"pending": pending, "running": running}})
+
+
+class ScanStatusView(APIView):
+    """How much of a book the story scan has already covered with the current model and prompt."""
+
+    @extend_schema(parameters=[OpenApiParameter("book", int, required=True)], responses=None)
+    def get(self, request):
+        from .models import ChapterScan
+        from .story_scan import needs_scan
+
+        book_id = parse_id(request.query_params.get("book"))
+        chapters = list(Chapter.objects.filter(book_id=book_id or 0, book__world__in=accessible_worlds(request.user, EDIT)).only("id", "plain_text"))
+        scans = {s.chapter_id: s for s in ChapterScan.objects.filter(chapter__in=chapters)}
+        model = settings.GEMINI_MODEL
+        current = [c for c in chapters if not needs_scan(scans.get(c.id), c.plain_text, model)]
+        last = max((s.scanned_at for s in scans.values()), default=None)
+        avg = [s.seconds / s.chunks for s in scans.values() if s.chunks and s.model_name == model]
+        pending_chars = sum(len(c.plain_text) for c in chapters if c not in current)
+        per_piece = (sum(avg) / len(avg)) if avg else None
+        estimate = round(per_piece * pending_chars / settings.AI_SCAN_CHUNK_CHARS) if per_piece else None
+        return Response({
+            "chapters": len(chapters), "up_to_date": len(current), "model": model,
+            "last_scanned_at": last, "estimated_seconds": estimate,
+        })

@@ -49,15 +49,15 @@ def test_seed_demo_is_idempotent_and_scoped(user, other_user):
     assert Chapter.objects.filter(book__world__owner=user).exclude(plain_text="").count() == 4
 
 
-@pytest.mark.ollama
-@pytest.mark.skipif(os.environ.get("RUN_OLLAMA_TESTS") != "1", reason="set RUN_OLLAMA_TESTS=1 with a running Ollama")
-def test_real_ollama_roundtrip():
+@pytest.mark.gemini
+@pytest.mark.skipif(os.environ.get("RUN_GEMINI_TESTS") != "1", reason="set RUN_GEMINI_TESTS=1 with GEMINI_API_KEY in .env (sends test text to Google)")
+def test_real_gemini_roundtrip():
     from apps.ai.service import AIService
     from apps.analysis.engine.types import CharacterS, TimePoint
     from decimal import Decimal
 
     service = AIService()
-    assert service.health()["available"], "Ollama is not running or the model is not pulled"
+    assert service.health()["available"], "GEMINI_API_KEY is missing or not accepted"
     kael = CharacterS(1, "Каель", status="dead", death=TimePoint(Decimal(340)))
     findings = service.analyze_plot_holes("— Ходімо, — сказав Каель.", "Тест", {"characters": [kael]}, chapter_id=1)
     assert isinstance(findings, list)

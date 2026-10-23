@@ -59,6 +59,7 @@ urlpatterns = [
     path("worlds/<int:world_pk>/graph-layout/<str:view>/", worlds.GraphLayoutView.as_view(), name="graph-layout"),
     path("worlds/<int:world_pk>/chronology/", analysis.WorldChronologyView.as_view(), name="world-chronology"),
     path("analysis/quick-check/", analysis.QuickCheckView.as_view(), name="quick-check"),
+    path("analysis/scan-status/", analysis.ScanStatusView.as_view(), name="scan-status"),
     path("ai/status/", analysis.AIStatusView.as_view(), name="ai-status"),
     path("language/spellcheck/", language.SpellcheckView.as_view(), name="spellcheck"),
     path("language/suggest/", language.SuggestView.as_view(), name="spell-suggest"),

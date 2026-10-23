@@ -131,3 +131,23 @@ class Evidence(models.Model):
 
     class Meta:
         ordering = ["id"]
+
+
+class ChapterScan(models.Model):
+    """The latest whole-book (story) scan of one chapter.
+
+    ``facts`` is the chapter's contribution to the story memory: important events and state
+    changes (who, what, a verified quote) that later chapters are checked against. A chapter
+    whose text, model and prompt version are unchanged is not scanned again, so a long book
+    scan can be stopped and resumed.
+    """
+
+    chapter = models.OneToOneField(Chapter, on_delete=models.CASCADE, related_name="scan")
+    text_hash = models.CharField(max_length=64)
+    model_name = models.CharField(max_length=120, blank=True)
+    prompt_version = models.PositiveSmallIntegerField(default=1)
+    facts = models.JSONField(default=list, blank=True)
+    chunks = models.PositiveIntegerField(default=0)
+    failed_chunks = models.PositiveIntegerField(default=0)
+    seconds = models.FloatField(default=0)
+    scanned_at = models.DateTimeField(auto_now=True)

@@ -1,6 +1,6 @@
-"""AIService: domain operations on top of a local LLM backend.
+"""AIService: domain operations on top of the LLM backend (Google Gemini, see ``backends.py``).
 
-Business code calls these methods, never Ollama directly. Every model answer is treated as
+Business code calls these methods, never the API directly. Every model answer is treated as
 untrusted data:
 
 * it is validated against a strict schema (``schemas.py``); invalid answers are rejected;
@@ -11,6 +11,8 @@ untrusted data:
 * manuscript and lore text is wrapped as quoted data, and the system prompt tells the model
   to ignore instructions inside it. Nothing the model returns is ever executed.
 """
+import re
+
 from apps.analysis.engine.types import (
     INFO,
     POTENTIAL,
@@ -18,15 +20,18 @@ from apps.analysis.engine.types import (
     EvidenceDraft,
     FindingDraft,
 )
+
 from apps.common.text import find_quote
 
 from .backends import AIResponseError, get_backend
 from .schemas import (
     ENTITY_JSON_SCHEMA,
     FINDINGS_JSON_SCHEMA,
+    SCAN_JSON_SCHEMA,
     TIMELINE_JSON_SCHEMA,
     EntitiesSerializer,
     FindingsSerializer,
+    ScanSerializer,
     TimelineSerializer,
 )
 
@@ -52,6 +57,50 @@ TASKS = {
         "та технологічні правила, політика фракцій (союзи, війни)."
     ),
 }
+
+
+# Bump when the scan prompt changes: chapters scanned with an older prompt are scanned again.
+SCAN_PROMPT_VERSION = 6
+
+FACT_KINDS = {
+    "death": "загинув або помер",
+    "injury": "поранення, каліцтво, втрата частини тіла",
+    "item": "втратив, знищив, віддав або отримав важливий предмет",
+    "place": "надовго опинився в іншому місці (вʼязниця, лікарня, інше місто)",
+    "knowledge": "дізнався важливу таємницю",
+    "relation": "став ворогом чи союзником, одружився, розійшовся",
+    "time": "минув час, точна дата, вік",
+    "other": "інше важливе для сюжету",
+}
+
+SCAN_TASK = (
+    "Ти перевіряєш рукопис роману на сюжетні та сценарні ляпи. Джерела нижче: [F] — фрагмент рукопису (поточний "
+    "розділ), [P…] — що вже сталося раніше в книзі (памʼять сюжету з цитатами), [C…] — довідки про персонажів з "
+    "енциклопедії, [E…] — події хронології, [L…] — сторінки енциклопедії світу.\n\n"
+    "1) issues — КОНКРЕТНІ суперечності, коли [F] суперечить іншому джерелу або сам собі. Наприклад: загиблий, зниклий "
+    "чи увʼязнений персонаж діє як вільний і живий; персонаж користується рукою, ногою, предметом, які втратив; знає те, "
+    "чого ще не міг дізнатися; не сходиться час, вік, порядок подій, зовнішність, імена, стосунки, належність до "
+    "фракції; дія порушує правила світу з енциклопедії; логічна дірка в межах самого фрагмента. "
+    "Не пиши про стиль, граматику, темп, побажання до сюжету. Флешбеки, сни, спогади, чутки, брехня чи помилка "
+    "персонажа — не ляпи. Для кожної проблеми: summary — одне зрозуміле речення українською; explanation — коротко, "
+    "чому це суперечність і що могло б її розвʼязати; severity — error (явний ляп), warning (ймовірний), info "
+    "(дрібниця); confidence від 0 до 1; evidence — дві ДОСЛІВНІ короткі цитати: одна з [F] (source \"F\"), друга з "
+    "джерела, якому вона суперечить (його мітка, напр. \"P3\" чи \"C1\"), або дві з [F], якщо фрагмент суперечить "
+    "сам собі. Якщо ляпів немає — порожній список. Не вигадуй.\n\n"
+    "2) facts — до 10 подій або змін стану з [F], які треба памʼятати до кінця книги. kind — одне з: "
+    + "; ".join(f"{k} ({v})" for k, v in FACT_KINDS.items()) + ". who — імʼя персонажа; fact — що сталося, "
+    "одне коротке речення; quote — дослівна цитата з [F] (до 15 слів). Звичайні дії (пішов, сказав, подивився) не "
+    "виписуй."
+)
+
+
+NAME_LINE = re.compile(r"^\s*(Імʼя|Інші імена)\s*:", re.IGNORECASE)
+
+
+def _is_label_only(quote, title):
+    """True for evidence that only names the entity ("Імʼя: Брюс Адамс") instead of stating a fact."""
+    q = quote.strip()
+    return len(q) < 10 or q.lower() == (title or "").strip().lower() or bool(NAME_LINE.match(q))
 
 
 def _quote_block(label, title, text):
@@ -167,6 +216,94 @@ class AIService:
         if not isinstance(text, str) or not text.strip():
             raise AIResponseError("Модель не надала пояснення.")
         return text.strip()[:4000]
+
+    def scan_chunk(self, text, chapter_title, brief, memory, chapter_id, offset=0):
+        """Whole-book scan of one piece (usually a whole chapter): returns (finding drafts, new facts).
+
+        One request: the piece, what is remembered from earlier chapters about the people in it, and
+        their encyclopedia background. A finding needs a verified quote from the piece AND from the
+        source it contradicts (or two different quotes from the piece); a fact needs its quote in the
+        text — everything unverifiable is dropped.
+        """
+        labels = {"F": ("chapter", chapter_id, chapter_title, text)}
+        parts = [_quote_block("F", f"Фрагмент рукопису, розділ «{chapter_title}»", text)]
+        for i, f in enumerate(memory, 1):
+            info = f"{f.who}: {f.fact}\nЦитата: {f.quote}"
+            labels[f"P{i}"] = ("memory", f, f.chapter_title, info)
+            parts.append(_quote_block(f"P{i}", f"Раніше, розділ «{f.chapter_title}»", info))
+        for i, (c, info) in enumerate(brief.get("characters", []), 1):
+            labels[f"C{i}"] = ("character", c.id, c.name, info)
+            parts.append(_quote_block(f"C{i}", f"Персонаж: {c.name}", info))
+        for i, e in enumerate(brief.get("events", []), 1):
+            info = f"{e.title}. Час: {e.start.text()}" + (f" — {e.end.text()}" if e.end.known else "")
+            labels[f"E{i}"] = ("event", e.id, e.title, info)
+            parts.append(_quote_block(f"E{i}", f"Подія: {e.title}", info))
+        for i, (entry, snippet) in enumerate(brief.get("lore", []), 1):
+            labels[f"L{i}"] = (getattr(entry, "source_type", "lore"), entry.id, entry.title, snippet)
+            parts.append(_quote_block(f"L{i}", f"Енциклопедія: {entry.title}", snippet))
+        user = f"{SCAN_TASK}\n\nДжерела:\n\n" + "\n\n".join(parts)
+        raw = self.backend.chat_json(SYSTEM_BASE, user, SCAN_JSON_SCHEMA, max_tokens=8000)
+        data = ScanSerializer(data=raw if isinstance(raw, dict) else {})
+        if not data.is_valid():
+            raise AIResponseError("Відповідь моделі не відповідає схемі перевірки.")
+        return (
+            self._scan_findings(data.validated_data["issues"], labels, text, chapter_id, offset),
+            self._scan_facts(data.validated_data["facts"], text, offset),
+        )
+
+    @staticmethod
+    def _scan_facts(items, text, offset):
+        facts = []
+        for item in items:
+            span = find_quote(text, item["quote"])
+            if span is None:
+                continue  # never remember an event that is not in the text
+            facts.append({
+                "who": item["who"].strip()[:120], "kind": item.get("kind") if item.get("kind") in FACT_KINDS else "other",
+                "fact": item["fact"].strip()[:300], "quote": text[span[0]:span[1]][:400], "start": span[0] + offset,
+            })
+        return facts[:10]
+
+    @staticmethod
+    def _scan_findings(items, labels, text, chapter_id, offset):
+        drafts = []
+        for item in items:
+            if item.get("confidence") is not None and item["confidence"] < 0.5:
+                continue
+            own, other = [], []
+            for ev in item["evidence"]:
+                label = ev["source"].strip().strip("[]").upper()
+                if label not in labels:
+                    continue  # a source that does not exist
+                kind, ref, title, source_text = labels[label]
+                span = find_quote(source_text, ev["quote"])
+                if span is None:
+                    continue  # a quote that is not in that source
+                if label == "F":
+                    if span[1] - span[0] >= 12 and all(s != span for s, _ in own):
+                        own.append((span, EvidenceDraft("chapter", chapter_id, title, text[span[0]:span[1]][:400],
+                                                        span[0] + offset, span[1] + offset, True)))
+                elif kind == "memory":
+                    fact = ref  # a remembered fact: cite the earlier chapter's own quote and position
+                    end = fact.start + len(fact.quote) if fact.start is not None else None
+                    other.append(EvidenceDraft("chapter", fact.chapter_id, f"Раніше: {fact.chapter_title}", fact.quote,
+                                               fact.start, end, True))
+                else:
+                    quote = source_text[span[0]:span[1]]
+                    if not _is_label_only(quote, title):
+                        other.append(EvidenceDraft(kind, ref, title, quote[:400], None, None, True))
+            if not own or (not other and len(own) < 2):
+                continue  # not checkable: no quote from the piece, or nothing it contradicts
+            first = own[0][1]
+            drafts.append(FindingDraft(
+                rule=f"ai_story:{item['type'][:40]}", category=POTENTIAL, severity=item["severity"], source="ai",
+                confidence=item.get("confidence"), summary=item["summary"][:300],
+                explanation=item.get("explanation", "")[:3000], chapter_id=chapter_id,
+                quote=first.quote, start=first.start, end=first.end, quote_verified=True,
+                evidence=[e for _, e in own] + other,
+                subject=tuple((e.source_type, e.source_id) for e in other) + (("chapter", chapter_id),),
+            ))
+        return drafts
 
     # --- validation ------------------------------------------------------------------
     def validate_findings(self, raw, labels, task, chapter_id=None, offset=0):

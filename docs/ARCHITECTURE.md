@@ -5,7 +5,7 @@ Browser (React + Tiptap) ──/api/v1 (session cookie + CSRF)──▶ Django R
         ▲  Vite dev proxy                                         │      ▲
         │                                                         │      │ AnalysisJob (черга в БД)
         └──────────── polling статусу завдань ◀───────────────────┘      │
-                                                         manage.py run_worker ──▶ AIService ──▶ OllamaBackend ──▶ http://127.0.0.1:11434
+                                                         manage.py run_worker ──▶ AIService ──▶ GeminiBackend ──▶ Google Gemini API
 ```
 
 ## Backend (`Backend/`)
@@ -18,7 +18,7 @@ Browser (React + Tiptap) ──/api/v1 (session cookie + CSRF)──▶ Django R
 | `apps.books` | `Book`, `Chapter`, `ChapterVersion`; валідація документів Tiptap; DOCX імпорт/експорт; глобальний пошук; `seed_demo` |
 | `apps.boards` | `Board`, `BoardItem`, `BoardConnection`; збереження розкладки |
 | `apps.analysis` | Алгоритмічне ядро (`engine/`), `AnalysisJob`, `Finding`, `Evidence`, черга й worker, швидкі перевірки |
-| `apps.ai` | `AIService` (доменні операції) + `OllamaBackend` (адаптер), схеми відповідей моделі |
+| `apps.ai` | `AIService` (доменні операції) + `GeminiBackend` (адаптер), схеми відповідей моделі |
 | `apps.language` | Перевірка правопису (Hunspell через spylls), словник користувача |
 
 ### Ізоляція даних
@@ -67,12 +67,16 @@ Tiptap/ProseMirror JSON валідується за білим списком в
 (припущення моделі, цитату не підтверджено). Рішення автора (`new/accepted/rejected/ignored`) переносяться на
 повторні запуски за fingerprint. Результати **ніколи** не змінюють рукопис.
 
-## Локальний ШІ
+## ШІ (Google Gemini)
 
-* `AIService` — операції `analyze_plot_holes`, `analyze_character_consistency`, `analyze_lore_consistency`,
-  `extract_entities`, `extract_timeline_events`, `explain_finding`. Бізнес-код не знає про Ollama.
-* `OllamaBackend` — `POST /api/chat` з `format=<JSON schema>`, `stream=false`, `trust_env=False` (без проксі),
-  перевірка, що URL — loopback або явно дозволений хост. `health()` перевіряє сервер і наявність моделі.
+* `AIService` — операції `scan_chunk` (перевірка книги), `analyze_plot_holes`, `analyze_character_consistency`,
+  `analyze_lore_consistency`, `extract_entities`, `extract_timeline_events`, `explain_finding`. Бізнес-код не
+  знає про конкретний API.
+* `GeminiBackend` — `POST …/models/{model}:generateContent` з `responseMimeType=application/json` і
+  `responseJsonSchema`, `thinkingLevel=low`, послабленими фільтрами безпеки (художній текст із насильством).
+  Ключ — лише в заголовку `x-goog-api-key`. Запити розносяться в часі (`GEMINI_MIN_INTERVAL_SECONDS`);
+  429 чекає `retryDelay`, 5xx повторюється й переходить на `GEMINI_FALLBACK_MODEL`; вичерпаний денний ліміт →
+  `AIUnavailable`. Відповідь, обірвана на `MAX_TOKENS`, рятується до останнього завершеного елемента.
 * Безпека промпта: рукопис і лор передаються як огороджені блоки даних з мітками (`[F]`, `[C1]`, `[L2]`…);
   інструкції лише в system prompt. Модель посилається на мітки — справжні id підставляє сервер; невідомі мітки
   відкидаються. Кожна цитата шукається в джерелі (`common/text.find_quote`, толерантно до лапок/апострофів/тире);
@@ -80,6 +84,24 @@ Tiptap/ProseMirror JSON валідується за білим списком в
   невалідний JSON → `ai_error`, база не змінюється.
 * Приватність: у логи потрапляють лише id, статуси й типи винятків — не текст. `error_message` завдання ніколи
   не містить тексту рукопису.
+
+### Перевірка всієї книги з памʼяттю сюжету (`analysis/story_scan.py`, `engine/story.py`)
+
+Книга читається по порядку, зазвичай **один запит на розділ** (`AI_SCAN_CHUNK_CHARS`, 40 000 символів). Запит
+містить розділ `[F]`, памʼять сюжету `[P…]` — факти з попередніх розділів про людей, згаданих у цьому, — і
+довідки з енциклопедії та хронології (`[C…]`, `[E…]`, `[L…]`). Відповідь — `issues` і `facts` разом:
+
+* **Факти** типізовані (`death`, `injury`, `item`, `place`, `knowledge`, `relation`, `time`, `other`) і мають
+  дослівну цитату; факт без знайденої цитати не запамʼятовується. `EntityIndex` привʼязує факти до сутностей
+  (`c:id`, `f:id`, `p:id`) з урахуванням відмінків, і памʼять для розділу добирається саме за ними.
+* **Знахідка** потребує перевіреної цитати з розділу та з джерела, якому вона суперечить (або двох різних цитат
+  із розділу); цитата-імʼя («Імʼя: …»), невідома мітка чи низька впевненість — відкидаються.
+
+Знахідки зберігаються після кожного розділу. `ChapterScan` зберігає хеш тексту, модель, версію промпта
+(`SCAN_PROMPT_VERSION`) і факти розділу. Незмінені розділи повторно не перевіряються, їхні знахідки переходять
+у нове завдання. Тому перерване завдання (немає інтернету, вичерпано денний ліміт, закрито сторінку)
+продовжується з місця зупинки, а після правок перевіряються лише змінені розділи; `full=true` перевіряє все
+заново. Рішення автора щодо знахідок зберігаються і не створюються знову.
 
 ## Черга завдань
 

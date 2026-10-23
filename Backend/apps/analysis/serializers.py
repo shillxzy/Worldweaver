@@ -33,18 +33,20 @@ class AnalysisJobSerializer(serializers.ModelSerializer):
     book = serializers.PrimaryKeyRelatedField(queryset=Book.objects.none(), required=False, allow_null=True)
     chapter = serializers.PrimaryKeyRelatedField(queryset=Chapter.objects.none(), required=False, allow_null=True)
     text = serializers.CharField(write_only=True, required=False, allow_blank=False, max_length=50_000)
+    # Whole-book scan: check every chapter again instead of only new or edited ones.
+    full = serializers.BooleanField(write_only=True, required=False, default=False)
     findings_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = AnalysisJob
         fields = [
-            "id", "world", "book", "chapter", "kind", "status", "use_ai", "params", "text", "progress",
+            "id", "world", "book", "chapter", "kind", "status", "use_ai", "params", "text", "full", "progress",
             "progress_message", "cancel_requested", "error_code", "error_message", "model_name", "attempts",
-            "created_at", "started_at", "finished_at", "stats", "findings_count",
+            "created_at", "started_at", "finished_at", "heartbeat_at", "stats", "findings_count",
         ]
         read_only_fields = [
             "status", "params", "progress", "progress_message", "cancel_requested", "error_code", "error_message",
-            "model_name", "attempts", "created_at", "started_at", "finished_at", "stats",
+            "model_name", "attempts", "created_at", "started_at", "finished_at", "heartbeat_at", "stats",
         ]
 
     def get_fields(self):
@@ -78,5 +80,6 @@ class AnalysisJobSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"world": "Книга належить іншому світу."})
         attrs["world"], attrs["book"] = world, book
         text = attrs.pop("text", None)
-        attrs["params"] = {"text": text} if text else {}
+        full = attrs.pop("full", False)
+        attrs["params"] = {**({"text": text} if text else {}), **({"full": True} if full else {})}
         return attrs

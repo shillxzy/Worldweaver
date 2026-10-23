@@ -1,11 +1,11 @@
 import { api, listAll } from './client'
 import type { Paginated } from './client'
-import type { AIStatus, AnalysisJob, Decision, Finding, JobKind, QuickCheckResult } from './types'
+import type { AIStatus, AnalysisJob, Decision, Finding, JobKind, QuickCheckResult, ScanStatus } from './types'
 
 export const analysisApi = {
   runConsistency: (worldId: number, bookId?: number) =>
     api.post<AnalysisJob>(`/worlds/${worldId}/consistency/`, bookId ? { book: bookId } : {}),
-  createJob: (data: { kind: Exclude<JobKind, 'consistency'>; book?: number; chapter?: number; text?: string; use_ai?: boolean }) =>
+  createJob: (data: { kind: Exclude<JobKind, 'consistency'>; book?: number; chapter?: number; text?: string; use_ai?: boolean; full?: boolean }) =>
     api.post<AnalysisJob>('/analysis/', data),
   jobs: (query: { book?: number; world?: number } = {}, signal?: AbortSignal) =>
     api.get<Paginated<AnalysisJob>>('/analysis/', { query: { ...query, page_size: 20 }, signal }),
@@ -18,4 +18,5 @@ export const analysisApi = {
   quickCheck: (chapter: number, text: string, offset: number, signal?: AbortSignal) =>
     api.post<QuickCheckResult>('/analysis/quick-check/', { chapter, text, offset }, { signal }),
   aiStatus: (signal?: AbortSignal) => api.get<AIStatus>('/ai/status/', { signal }),
+  scanStatus: (bookId: number, signal?: AbortSignal) => api.get<ScanStatus>('/analysis/scan-status/', { query: { book: bookId }, signal }),
 }

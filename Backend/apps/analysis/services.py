@@ -48,7 +48,9 @@ def deduplicate(drafts):
 
 
 @transaction.atomic
-def persist_findings(drafts, world, job=None):
+def persist_findings(drafts, world, job=None, skip_decided=False):
+    """Save findings. Earlier decisions are carried over by fingerprint; with ``skip_decided`` a
+    finding the author already decided on is not created again (rescans of a chapter)."""
     drafts = deduplicate(drafts)
     previous = {
         f.fingerprint: (f.decision, f.decision_note)
@@ -58,6 +60,8 @@ def persist_findings(drafts, world, job=None):
     created = []
     for draft in drafts:
         fp = draft.fingerprint()
+        if skip_decided and fp in previous:
+            continue
         decision, note = previous.get(fp, (Finding.Decision.NEW, ""))
         finding = Finding.objects.create(
             job=job, world=world,
@@ -164,6 +168,10 @@ def _heartbeat(job, progress=None, message=None):
 
 def process_job(job, ai_service_factory):
     """Run one deep analysis job. Called by the worker after it claimed the job."""
+    from .story_scan import STORY_KINDS, process_story_job
+
+    if job.kind in STORY_KINDS:
+        return process_story_job(job, ai_service_factory, _heartbeat, persist_findings, _stats)
     started = time.perf_counter()
     chapters_qs = job_chapters(job)
     snap = load_snapshot(job.world, chapters_qs)
@@ -196,9 +204,7 @@ def process_job(job, ai_service_factory):
             service = ai_service_factory()
             health = service.health()
             if not health.get("available"):
-                raise AIUnavailable(
-                    "Ollama не запущена." if not health.get("server") else f"Модель «{health.get('model')}» не встановлена."
-                )
+                raise AIUnavailable(health.get("error") or f"Модель «{health.get('model')}» недоступна.")
             AnalysisJob.objects.filter(pk=job.pk).update(model_name=service.model_name)
             drafts += _run_ai(job, snap, service, fragment_offset)
             ai_status = "ok"

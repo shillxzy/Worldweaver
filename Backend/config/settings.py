@@ -205,19 +205,27 @@ WW_MAX_ANALYSIS_CHARS = int(env("WW_MAX_ANALYSIS_CHARS", str(2_000_000)))
 WW_VERSION_INTERVAL_SECONDS = int(env("WW_VERSION_INTERVAL_SECONDS", "300"))
 WW_MAX_VERSIONS_PER_CHAPTER = int(env("WW_MAX_VERSIONS_PER_CHAPTER", "50"))
 
-# Local AI (Ollama). Only loopback hosts are accepted unless listed explicitly.
-OLLAMA_URL = env("OLLAMA_URL", "http://127.0.0.1:11434")
-OLLAMA_MODEL = env("OLLAMA_MODEL", "qwen2.5:7b-instruct")
-OLLAMA_ALLOWED_HOSTS = env_list("OLLAMA_ALLOWED_HOSTS", "")
-OLLAMA_TIMEOUT_SECONDS = int(env("OLLAMA_TIMEOUT_SECONDS", "180"))
-OLLAMA_NUM_CTX = int(env("OLLAMA_NUM_CTX", "8192"))
+# AI: Google Gemini API. The key lives only in Backend/.env (never in the repository).
+GEMINI_API_KEY = env("GEMINI_API_KEY", "")
+# flash-lite: fast and rarely overloaded; set GEMINI_MODEL=gemini-flash-latest for a smarter (slower) model.
+GEMINI_MODEL = env("GEMINI_MODEL", "gemini-flash-lite-latest")
+GEMINI_FALLBACK_MODEL = env("GEMINI_FALLBACK_MODEL", "gemini-flash-lite-latest")  # used when the main one is overloaded
+GEMINI_THINKING = env("GEMINI_THINKING", "low")  # "low" is much faster; empty = the model's default
+GEMINI_TIMEOUT_SECONDS = int(env("GEMINI_TIMEOUT_SECONDS", "120"))
+# The free tier allows a limited number of requests per minute: requests are spaced out.
+GEMINI_MIN_INTERVAL_SECONDS = float(env("GEMINI_MIN_INTERVAL_SECONDS", "4"))
 AI_MAX_CONCURRENT_JOBS = int(env("AI_MAX_CONCURRENT_JOBS", "1"))
 AI_CHUNK_CHARS = int(env("AI_CHUNK_CHARS", "3500"))
 AI_CHUNK_OVERLAP = int(env("AI_CHUNK_OVERLAP", "300"))
+# Whole-book scan: Gemini reads a whole chapter at once (one request per chapter); requests are
+# rate-limited on the free tier, so chapters are processed one at a time.
+AI_SCAN_CHUNK_CHARS = int(env("AI_SCAN_CHUNK_CHARS", "40000"))
+AI_SCAN_PARALLEL = int(env("AI_SCAN_PARALLEL", "1"))
 AI_MAX_LORE_CONTEXT_CHARS = int(env("AI_MAX_LORE_CONTEXT_CHARS", "4000"))
 
 WORKER_POLL_SECONDS = float(env("WORKER_POLL_SECONDS", "2"))
-WORKER_STALE_SECONDS = int(env("WORKER_STALE_SECONDS", "300"))
+# A request may wait out a rate limit for a while: a job counts as lost only after 15 minutes of silence.
+WORKER_STALE_SECONDS = int(env("WORKER_STALE_SECONDS", "900"))
 WORKER_MAX_ATTEMPTS = int(env("WORKER_MAX_ATTEMPTS", "3"))
 
 SPELL_DICT_DIR = Path(env("SPELL_DICT_DIR", str(BASE_DIR / "dictionaries")))

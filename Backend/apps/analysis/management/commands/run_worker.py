@@ -24,7 +24,8 @@ class Command(BaseCommand):
         signal.signal(signal.SIGINT, _stop)
         if hasattr(signal, "SIGTERM"):
             signal.signal(signal.SIGTERM, _stop)
-        self.stdout.write(f"Worker {wid} запущено. Модель: {settings.OLLAMA_MODEL} @ {settings.OLLAMA_URL}")
+        self.stdout.write(f"Worker {wid} запущено. Модель: Gemini {settings.GEMINI_MODEL}"
+                          + ("" if settings.GEMINI_API_KEY else " (немає GEMINI_API_KEY у .env — аналіз ШІ недоступний)"))
         last_recovery = 0.0
         while not stop["flag"]:
             if time.monotonic() - last_recovery > 30:

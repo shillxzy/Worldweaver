@@ -163,6 +163,8 @@ class LoreS:
     category: str = ""
     tags: list = field(default_factory=list)
     source_type: str = "lore"  # "page" for encyclopedia pages
+    character_id: Optional[int] = None  # the page of a character / faction (same names: one entity)
+    faction_id: Optional[int] = None
 
 
 @dataclass

@@ -2,7 +2,7 @@ import { useAccess } from '../access'
 import { useEffect, useMemo, useState } from 'react'
 import { analysisApi } from '../api/analysis'
 import { chaptersApi } from '../api/chapters'
-import type { AIStatus, AnalysisJob, Book, ChapterSummary, Decision, Evidence, Finding, FindingCategory, JobKind } from '../api/types'
+import type { AIStatus, AnalysisJob, Book, ChapterSummary, Decision, Evidence, Finding, FindingCategory, ScanStatus } from '../api/types'
 import Header from '../components/Header'
 import Icon from '../components/Icon'
 import { Empty, ErrorState, Loading } from '../components/Ui'
@@ -25,13 +25,16 @@ export default function Analysis({ book }: { book: Book }) {
   const ai = useAsync<AIStatus>((signal) => analysisApi.aiStatus(signal), [])
   const chapters = useAsync<ChapterSummary[]>((signal) => chaptersApi.list(book.id, signal), [book.id])
   const [selected, setSelected] = useState<number | null>(null)
-  const [deepKind, setDeepKind] = useState<Exclude<JobKind, 'consistency' | 'fragment'>>('book_with_lore')
+  const [deepKind, setDeepKind] = useState<'book' | 'chapter'>('book')
   const [chapterId, setChapterId] = useState<number | null>(null)
+  const [full, setFull] = useState(false)
   const { busy, run } = useBusy()
 
   const list = jobs.data ?? []
   const current = list.find((j) => j.id === selected) ?? list[0]
-  const hasActive = list.some((j) => ACTIVE.has(j.status))
+  const active = list.find((j) => ACTIVE.has(j.status))
+  const hasActive = Boolean(active)
+  const scan = useAsync<ScanStatus>((signal) => analysisApi.scanStatus(book.id, signal), [book.id, hasActive])
 
   // Poll while a job is pending/running (the worker updates progress in the DB).
   const reloadJobs = jobs.reload
@@ -52,7 +55,7 @@ export default function Analysis({ book }: { book: Book }) {
   const runDeep = () => void run(async () => {
     try {
       const chapter = deepKind === 'chapter' ? chapterId ?? chapters.data?.[0]?.id : undefined
-      const job = await analysisApi.createJob({ kind: deepKind, book: book.id, chapter })
+      const job = await analysisApi.createJob({ kind: deepKind, book: book.id, chapter, full: deepKind === 'book' && full })
       jobs.setData((prev) => [job, ...(prev ?? []).filter((j) => !(j.status === 'pending' && j.kind === job.kind))])
       setSelected(job.id)
     } catch (err) { notify(errorText(err), 'error') }
@@ -82,15 +85,24 @@ export default function Analysis({ book }: { book: Book }) {
           <div className="ai-status">
             {ai.loading ? <span className="muted">{t('ui.loading')}</span> : ai.data?.available
               ? <span className="ok"><Icon n="check" />{t('an.aiReady')}: {ai.data.model}</span>
-              : <span className="warn">{ai.data?.server ? `${t('an.modelMissing')}: ${ai.data.model}` : t('an.aiOffline')}</span>}
+              : <span className="warn">{t('an.aiOffline')}{ai.data?.error ? `: ${ai.data.error}` : ''}</span>}
             {ai.data?.queue && <small className="muted"> · {t('an.queue')}: {ai.data.queue.pending}/{ai.data.queue.running}</small>}
             <button className="link" onClick={ai.reload}>↻</button>
           </div>
+          {scan.data && scan.data.chapters > 0 && (
+            <div className="scan-status">
+              <div className="bar"><i style={{ width: `${Math.round(100 * scan.data.up_to_date / scan.data.chapters)}%` }} /></div>
+              <small>
+                {t('an.scanCovered').replace('{n}', String(scan.data.up_to_date)).replace('{total}', String(scan.data.chapters))}
+                {scan.data.up_to_date < scan.data.chapters && scan.data.estimated_seconds
+                  ? ` · ${t('an.scanLeft').replace('{time}', duration(scan.data.estimated_seconds))}` : ''}
+              </small>
+            </div>
+          )}
           <div className="row2">
             <select className="field" value={deepKind} onChange={(e) => setDeepKind(e.target.value as typeof deepKind)}>
-              <option value="chapter">{t('jobKind.chapter')}</option>
-              <option value="book">{t('jobKind.book')}</option>
-              <option value="book_with_lore">{t('jobKind.book_with_lore')}</option>
+              <option value="book">{t('an.scopeBook')}</option>
+              <option value="chapter">{t('an.scopeChapter')}</option>
             </select>
             {deepKind === 'chapter' && (
               <select className="field" value={chapterId ?? ''} onChange={(e) => setChapterId(Number(e.target.value))}>
@@ -98,11 +110,19 @@ export default function Analysis({ book }: { book: Book }) {
               </select>
             )}
           </div>
-          <button className="btn" onClick={runDeep} disabled={busy || (deepKind === 'chapter' && !chapters.data?.length)}>{t('an.runDeep')}</button>
+          {deepKind === 'book' && (
+            <label className="check"><input type="checkbox" checked={full} onChange={(e) => setFull(e.target.checked)} />{t('an.scanFull')}</label>
+          )}
+          <button className="btn" onClick={runDeep} disabled={busy || hasActive || (deepKind === 'chapter' && !chapters.data?.length)}>
+            {deepKind === 'book' && scan.data && scan.data.up_to_date > 0 && scan.data.up_to_date < scan.data.chapters && !full ? t('an.scanContinue') : t('an.runDeep')}
+          </button>
+          <small className="muted">{t('an.scanHint')}</small>
+          <small className="muted">⚠ {t('an.cloudNote')}</small>
           {!ai.data?.available && <small className="muted">{t('an.deepWithoutAi')}</small>}
         </div>
       </div>
 
+      {active && <LiveProgress key={active.id} job={active} onCancel={() => cancel(active)} />}
       <ErrorState error={jobs.error} onRetry={jobs.reload} />
       {jobs.loading && !jobs.data ? <Loading /> : list.length === 0 ? (
         <Empty title={t('an.emptyTitle')} text={t('an.emptyText')} />
@@ -214,4 +234,60 @@ function FindingCard({ finding: f, book, onChange }: { finding: Finding; book: B
       </div>
     </div>
   )
+}
+
+function duration(seconds: number) {
+  const minutes = Math.max(1, Math.round(seconds / 60))
+  return minutes < 60 ? `${minutes} хв` : `${Math.floor(minutes / 60)} год ${String(minutes % 60).padStart(2, '0')} хв`
+}
+
+/**
+ * Live state of a running check: a big bar, the chapter being read, elapsed time and how long ago the
+ * worker last reported — so it is obvious the analysis is moving (or why it is not).
+ */
+function LiveProgress({ job, onCancel }: { job: AnalysisJob; onCancel: () => void }) {
+  const { t } = useApp()
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const pending = job.status === 'pending'
+  const percent = Math.round(job.progress * 100)
+  const since = (iso: string | null) => (iso ? Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000)) : null)
+  const waited = since(job.created_at) ?? 0
+  const elapsed = since(job.started_at)
+  const silent = since(job.heartbeat_at)
+  // Before the first chapter (rules, loading the memory) the exact share is unknown: show motion instead.
+  const indeterminate = pending || job.progress < 0.08
+
+  return (
+    <section className={'live-progress' + (pending ? ' waiting' : '')} aria-live="polite">
+      <div className="live-head">
+        <b><span className="live-dot" />{pending ? t('an.liveWaiting') : t('an.liveRunning')}</b>
+        {!pending && <span className="live-percent">{percent}%</span>}
+        <button className="btn-ghost small" onClick={onCancel} disabled={job.cancel_requested}>
+          {job.cancel_requested ? t('an.liveCancelling') : t('ui.cancel')}
+        </button>
+      </div>
+      <div className={'live-bar' + (indeterminate ? ' indeterminate' : '')}>
+        <i style={indeterminate ? undefined : { width: `${Math.max(3, percent)}%` }} />
+      </div>
+      <p className="live-message">{pending ? t('an.liveQueued') : job.progress_message || t('an.liveStarting')}</p>
+      <small className="muted">
+        {elapsed !== null && `${t('an.liveElapsed')}: ${clock(elapsed)}`}
+        {silent !== null && !pending && ` · ${t('an.liveUpdated').replace('{s}', String(silent))}`}
+        {job.model_name && ` · ${job.model_name}`}
+      </small>
+      {pending && waited > 15 && <p className="warn">{t('an.liveNoWorker')}</p>}
+      {!pending && silent !== null && silent > 90 && <p className="warn">{t('an.liveSlow')}</p>}
+    </section>
+  )
+}
+
+function clock(seconds: number) {
+  const m = Math.floor(seconds / 60)
+  const h = Math.floor(m / 60)
+  const ss = String(seconds % 60).padStart(2, '0')
+  return h ? `${h}:${String(m % 60).padStart(2, '0')}:${ss}` : `${m}:${ss}`
 }

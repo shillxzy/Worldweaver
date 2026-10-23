@@ -77,7 +77,7 @@
 | `GET/PATCH /analysis/findings/{id}/` | Рішення автора: `decision`, `decision_note` |
 | `POST /analysis/findings/{id}/explain/` | Пояснення від локальної моделі (503, якщо недоступна) |
 | `POST /analysis/quick-check/` `{chapter, text, offset}` | Режим A: швидкі перевірки фрагмента без LLM |
-| `GET /ai/status/` | Стан Ollama та черги |
+| `GET /ai/status/` | Стан ШІ (Gemini: ключ, модель) та черги |
 | `POST /language/spellcheck/` `{text, world?}` · `GET /language/suggest/?word=` · `GET /language/status/` | Правопис |
 | `GET/POST/DELETE /language/dictionary/` | Словник користувача |
 

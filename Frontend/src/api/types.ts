@@ -177,10 +177,11 @@ export type AnalysisJob = {
   id: number; world: number; book: number | null; chapter: number | null; kind: JobKind; status: JobStatus
   use_ai: boolean; params: Record<string, unknown>; progress: number; progress_message: string
   cancel_requested: boolean; error_code: string; error_message: string; model_name: string; attempts: number
-  created_at: string; started_at: string | null; finished_at: string | null
+  created_at: string; started_at: string | null; finished_at: string | null; heartbeat_at: string | null
   stats: {
     findings?: number; by_category?: Record<string, number>; quotes_total?: number; quotes_verified?: number
     seconds?: number; ai?: 'ok' | 'unavailable' | 'error' | 'not_used'; chapters?: number
+    scanned?: number; skipped?: number; pieces?: number; failed_pieces?: number; ai_seconds?: number
   }
   findings_count: number
 }
@@ -293,4 +294,9 @@ export type PublicPage = {
   content: DocNode; properties: { label: string; kind: PropertyKind; value: unknown }[]
   children: { id: number; title: string; icon: string }[]
   character: { status: CharacterStatus; birth_label: string; death_label: string; has_portrait: boolean } | null
+}
+
+/** How much of a book the AI story scan already covers (current model and prompt). */
+export type ScanStatus = {
+  chapters: number; up_to_date: number; model: string; last_scanned_at: string | null; estimated_seconds: number | null
 }

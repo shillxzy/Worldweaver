@@ -1,4 +1,4 @@
-"""Schemas for structured model output: JSON schema sent to Ollama + server-side validators."""
+"""Schemas for structured model output: JSON schema sent to the model + server-side validators."""
 from rest_framework import serializers
 
 FINDINGS_JSON_SCHEMA = {
@@ -105,3 +105,59 @@ class TimelineItemSerializer(serializers.Serializer):
 
 class TimelineSerializer(serializers.Serializer):
     events = TimelineItemSerializer(many=True, max_length=100)
+
+
+# Whole-book story scan: one request per chapter returns possible plot holes and new story facts.
+SCAN_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "issues": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string"},
+                    "severity": {"type": "string", "enum": ["info", "warning", "error"]},
+                    "confidence": {"type": "number"},
+                    "summary": {"type": "string"},
+                    "explanation": {"type": "string"},
+                    "evidence": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"source": {"type": "string"}, "quote": {"type": "string"}},
+                            "required": ["source", "quote"],
+                        },
+                    },
+                },
+                "required": ["type", "severity", "summary", "evidence"],
+            },
+        },
+        "facts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "who": {"type": "string"},
+                    "kind": {"type": "string", "enum": ["death", "injury", "item", "place", "knowledge", "relation", "time", "other"]},
+                    "fact": {"type": "string"},
+                    "quote": {"type": "string"},
+                },
+                "required": ["who", "kind", "fact", "quote"],
+            },
+        },
+    },
+    "required": ["issues", "facts"],
+}
+
+
+class ScanFactSerializer(serializers.Serializer):
+    who = serializers.CharField(max_length=200, allow_blank=True)
+    kind = serializers.CharField(max_length=20, required=False, default="other")
+    fact = serializers.CharField(max_length=600)
+    quote = serializers.CharField(max_length=1000)
+
+
+class ScanSerializer(serializers.Serializer):
+    issues = FindingItemSerializer(many=True, max_length=40)
+    facts = ScanFactSerializer(many=True, max_length=40)

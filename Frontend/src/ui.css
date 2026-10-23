@@ -261,3 +261,27 @@ img.av.zoomable { cursor: zoom-in; }
 .import-title { display: flex !important; align-items: center; gap: 8px; color: var(--text-h); }
 .import-merged { color: var(--accent); font-size: 12px; }
 .import-note { font-size: 13px; }
+
+/* AI story scan coverage */
+.scan-status { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 8px; }
+.scan-status small { font-size: 12px; }
+
+/* Live progress of a running check */
+.live-progress { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; padding: 14px 16px; border: 1px solid var(--accent); border-radius: 14px; background: var(--accent-bg); }
+.live-progress.waiting { border-color: var(--border); background: var(--card); }
+.live-head { display: flex; align-items: center; gap: 12px; }
+.live-head b { display: flex; align-items: center; gap: 8px; color: var(--text-h); }
+.live-percent { margin-left: auto; font: 700 18px var(--serif); color: var(--text-h); }
+.live-head .btn-ghost { margin-left: 8px; }
+.live-progress.waiting .live-head .btn-ghost { margin-left: auto; }
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: live-pulse 1.2s ease-in-out infinite; }
+.live-bar { position: relative; height: 12px; border-radius: 12px; background: var(--border); overflow: hidden; }
+.live-bar i { position: absolute; inset: 0 auto 0 0; display: block; border-radius: 12px; transition: width 0.6s ease;
+  background: repeating-linear-gradient(45deg, var(--accent) 0 12px, color-mix(in srgb, var(--accent) 70%, #fff) 12px 24px);
+  background-size: 34px 34px; animation: live-stripes 1s linear infinite; }
+.live-bar.indeterminate i { width: 35%; animation: live-stripes 1s linear infinite, live-slide 1.6s ease-in-out infinite; }
+.live-message { margin: 0; color: var(--text-h); font-size: 14px; }
+@keyframes live-stripes { from { background-position: 0 0; } to { background-position: 34px 0; } }
+@keyframes live-slide { 0% { left: -35%; } 100% { left: 100%; } }
+@keyframes live-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.7); } }
+@media (prefers-reduced-motion: reduce) { .live-bar i, .live-dot { animation: none; } .live-bar.indeterminate i { left: 0; width: 100%; opacity: 0.5; } }

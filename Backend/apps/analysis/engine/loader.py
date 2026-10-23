@@ -91,7 +91,10 @@ def load_snapshot(world, chapter_qs=None):
         text = page.plain_text
         if page.aliases:
             text = "Інші назви: " + ", ".join(page.aliases) + "\n" + text
-        snap.lore.append(LoreS(page.id, page.title, text, page.page_type, tags, source_type="page"))
+        snap.lore.append(LoreS(
+            page.id, page.title, text, page.page_type, tags, source_type="page",
+            character_id=page.character_id, faction_id=page.faction_id,
+        ))
     for entry in LoreEntry.objects.filter(world=world, page__isnull=True).prefetch_related("tags"):
         snap.lore.append(LoreS(entry.id, entry.title, entry.content, entry.category, [t.name for t in entry.tags.all()]))
     chapters = chapter_qs if chapter_qs is not None else Chapter.objects.filter(book__world=world)
