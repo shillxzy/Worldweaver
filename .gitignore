@@ -40,3 +40,6 @@ Thumbs.db
 
 # Local tooling
 .claude/
+
+# Private evaluation data (contains manuscript quotes)
+Backend/eval_private/
