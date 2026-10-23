@@ -119,3 +119,10 @@ class DocxImportSerializer(serializers.Serializer):
     mode = serializers.ChoiceField(choices=MODES, default="new_chapter")
     chapter = serializers.IntegerField(min_value=1, required=False)
     title = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    split_level = serializers.IntegerField(min_value=1, max_value=3, required=False)
+
+
+class DocxPreviewSerializer(serializers.Serializer):
+    file = serializers.FileField()
+    title = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    split_level = serializers.IntegerField(min_value=1, max_value=3, required=False)

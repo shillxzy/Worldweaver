@@ -15,6 +15,13 @@ export type ChapterInput = {
 
 export type ImportMode = 'new_chapter' | 'split_headings' | 'replace_chapter'
 
+export type ImportPreview = {
+  levels: { level: number; count: number; samples: string[] }[]
+  split_level: number | null
+  suggested_level: number | null
+  chapters: { title: string; word_count: number; merged: string[]; lead_in: boolean }[]
+}
+
 const base = (bookId: number) => `/books/${bookId}/chapters/`
 
 export const chaptersApi = {
@@ -32,12 +39,20 @@ export const chaptersApi = {
     api.post<Chapter>(`${base(bookId)}${id}/versions/${versionId}/restore/`),
   exportDocx: (bookId: number, chapter: Pick<ChapterSummary, 'id' | 'title'>) =>
     download(`${base(bookId)}${chapter.id}/export/`, `${chapter.title}.docx`),
-  importDocx: (bookId: number, file: File, mode: ImportMode, chapterId?: number) => {
+  importDocx: (bookId: number, file: File, mode: ImportMode, chapterId?: number, splitLevel?: number) => {
     const form = new FormData()
     form.append('file', file)
     form.append('book', String(bookId))
     form.append('mode', mode)
     if (chapterId) form.append('chapter', String(chapterId))
+    if (splitLevel) form.append('split_level', String(splitLevel))
     return api.upload<ChapterSummary[]>('/import/docx/', form)
+  },
+  /** Dry run of the heading split: the chapters an import would create. Nothing is saved. */
+  previewDocx: (file: File, splitLevel?: number, signal?: AbortSignal) => {
+    const form = new FormData()
+    form.append('file', file)
+    if (splitLevel) form.append('split_level', String(splitLevel))
+    return api.upload<ImportPreview>('/import/docx/preview/', form, { signal })
   },
 }

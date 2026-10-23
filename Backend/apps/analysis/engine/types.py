@@ -96,6 +96,7 @@ class CharacterS:
     birth: TimePoint = TimePoint(None, UNKNOWN)
     death: TimePoint = TimePoint(None, UNKNOWN)
     world_id: Optional[int] = None
+    profile: str = ""  # free text from the character's encyclopedia page (AI context)
 
     def names(self):
         return [self.name, *[a for a in self.aliases if a]]
@@ -161,6 +162,7 @@ class LoreS:
     content: str = ""
     category: str = ""
     tags: list = field(default_factory=list)
+    source_type: str = "lore"  # "page" for encyclopedia pages
 
 
 @dataclass

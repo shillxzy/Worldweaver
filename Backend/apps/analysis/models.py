@@ -118,6 +118,7 @@ class Evidence(models.Model):
         RELATIONSHIP = "relationship", "Звʼязок"
         DEPENDENCY = "dependency", "Часова залежність"
         MEMBERSHIP = "membership", "Членство"
+        PAGE = "page", "Сторінка енциклопедії"
 
     finding = models.ForeignKey(Finding, on_delete=models.CASCADE, related_name="evidence")
     source_type = models.CharField(max_length=12, choices=SourceType.choices)

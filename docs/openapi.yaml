@@ -1369,6 +1369,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/Chapter'
           description: ''
+  /api/v1/books/{book_pk}/chapters/{chapter_pk}/relevant-pages/:
+    get:
+      operationId: books_chapters_relevant_pages_retrieve
+      description: Encyclopedia pages mentioned in a chapter (titles and aliases,
+        with Ukrainian inflection).
+      parameters:
+      - in: path
+        name: book_pk
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: chapter_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - books
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/v1/books/{book_pk}/chapters/{id}/:
     get:
       operationId: books_chapters_retrieve
@@ -2065,6 +2088,39 @@ paths:
       - cookieAuth: []
       responses:
         '200':
+          description: No response body
+  /api/v1/page-templates/:
+    get:
+      operationId: page_templates_retrieve
+      description: Built-in templates plus the user's own (global or for the given
+        world).
+      parameters:
+      - in: query
+        name: world
+        schema:
+          type: integer
+      tags:
+      - page-templates
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/page-templates/{id}/:
+    delete:
+      operationId: page_templates_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - page-templates
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
           description: No response body
   /api/v1/search/:
     get:
@@ -3466,6 +3522,614 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/worlds/{world_pk}/pages/:
+    get:
+      operationId: worlds_pages_list
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: page_type
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPageListList'
+          description: ''
+    post:
+      operationId: worlds_pages_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PageCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PageCreateRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+          description: ''
+  /api/v1/worlds/{world_pk}/pages/{page_pk}/properties/:
+    post:
+      operationId: worlds_pages_properties_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: page_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PropertyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PropertyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PropertyRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+          description: ''
+  /api/v1/worlds/{world_pk}/pages/{page_pk}/properties/{id}/:
+    patch:
+      operationId: worlds_pages_properties_partial_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this page property.
+        required: true
+      - in: path
+        name: page_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPropertyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPropertyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPropertyRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+          description: ''
+    delete:
+      operationId: worlds_pages_properties_destroy
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this page property.
+        required: true
+      - in: path
+        name: page_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/pages/{page_pk}/properties/reorder/:
+    post:
+      operationId: worlds_pages_properties_reorder_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: path
+        name: page_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPropertyList'
+          description: ''
+  /api/v1/worlds/{world_pk}/pages/{id}/:
+    get:
+      operationId: worlds_pages_retrieve
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this page.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+          description: ''
+    put:
+      operationId: worlds_pages_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this page.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PageRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+          description: ''
+    patch:
+      operationId: worlds_pages_partial_update
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this page.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPageRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+          description: ''
+    delete:
+      operationId: worlds_pages_destroy
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this page.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/pages/{id}/cover/:
+    get:
+      operationId: worlds_pages_cover_retrieve
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this page.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: worlds_pages_cover_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this page.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                cover:
+                  type: string
+                  format: binary
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: worlds_pages_cover_destroy
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this page.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/worlds/{world_pk}/pages/{id}/move/:
+    post:
+      operationId: worlds_pages_move_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this page.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MoveRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MoveRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+          description: ''
+  /api/v1/worlds/{world_pk}/pages/{id}/save-as-template/:
+    post:
+      operationId: worlds_pages_save_as_template_create
+      description: For viewsets nested under ``/worlds/<world_pk>/...``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this page.
+        required: true
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+          description: ''
+  /api/v1/worlds/{world_pk}/pages/by-entity/:
+    get:
+      operationId: worlds_pages_by_entity_retrieve
+      description: The page of a structured record (created on demand for records
+        made outside the encyclopedia).
+      parameters:
+      - in: query
+        name: id
+        schema:
+          type: integer
+      - in: query
+        name: type
+        schema:
+          type: string
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageList'
+          description: ''
+  /api/v1/worlds/{world_pk}/pages/lookup/:
+    get:
+      operationId: worlds_pages_lookup_list
+      description: Fast title/alias search for the link picker (no content search).
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: page_type
+        schema:
+          type: string
+      - in: query
+        name: q
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: path
+        name: world_pk
+        schema:
+          type: string
+          pattern: ^\d{1,18}$
+        required: true
+      tags:
+      - worlds
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPageListList'
+          description: ''
   /api/v1/worlds/{world_pk}/relationships/:
     get:
       operationId: worlds_relationships_list
@@ -4653,6 +5317,10 @@ components:
         has_portrait:
           type: boolean
           readOnly: true
+        page_id:
+          type: integer
+          nullable: true
+          readOnly: true
         memberships:
           type: array
           items:
@@ -4672,6 +5340,7 @@ components:
       - id
       - memberships
       - name
+      - page_id
       - updated_at
     CharacterRequest:
       type: object
@@ -5029,6 +5698,10 @@ components:
           type: integer
           readOnly: true
           default: 0
+        page_id:
+          type: integer
+          nullable: true
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -5042,6 +5715,7 @@ components:
       - id
       - members_count
       - name
+      - page_id
       - updated_at
     FactionRequest:
       type: object
@@ -5505,6 +6179,201 @@ components:
         * `new_chapter` - new_chapter
         * `split_headings` - split_headings
         * `replace_chapter` - replace_chapter
+    MoveRequest:
+      type: object
+      properties:
+        parent:
+          type: integer
+          minimum: 1
+          nullable: true
+        position:
+          type: integer
+          minimum: 0
+      required:
+      - parent
+    Page:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        icon:
+          type: string
+          maxLength: 16
+        page_type:
+          type: string
+          description: 'Вільний тип: note, character, location, … або власний.'
+          maxLength: 40
+        parent:
+          type: integer
+          readOnly: true
+          nullable: true
+        sort_order:
+          type: integer
+          readOnly: true
+        aliases:
+          type: array
+          items:
+            type: string
+            maxLength: 120
+          maxItems: 30
+        has_children:
+          type: boolean
+          readOnly: true
+          default: false
+        has_cover:
+          type: boolean
+          readOnly: true
+        entity_type:
+          type: string
+          nullable: true
+          readOnly: true
+        entity_id:
+          type: integer
+          nullable: true
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        content: {}
+        plain_text:
+          type: string
+          readOnly: true
+        revision:
+          type: integer
+          readOnly: true
+        properties:
+          type: array
+          items:
+            $ref: '#/components/schemas/Property'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - entity_id
+      - entity_type
+      - has_children
+      - has_cover
+      - id
+      - parent
+      - plain_text
+      - properties
+      - revision
+      - sort_order
+      - title
+      - updated_at
+    PageCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          default: ''
+          maxLength: 200
+        parent:
+          type: integer
+          minimum: 1
+          nullable: true
+        template:
+          type: string
+          maxLength: 40
+        user_template:
+          type: integer
+          minimum: 1
+        page_type:
+          type: string
+          minLength: 1
+          maxLength: 40
+        icon:
+          type: string
+          maxLength: 16
+    PageList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        icon:
+          type: string
+          maxLength: 16
+        page_type:
+          type: string
+          description: 'Вільний тип: note, character, location, … або власний.'
+          maxLength: 40
+        parent:
+          type: integer
+          nullable: true
+        sort_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        aliases: {}
+        has_children:
+          type: boolean
+          readOnly: true
+          default: false
+        has_cover:
+          type: boolean
+          readOnly: true
+        entity_type:
+          type: string
+          nullable: true
+          readOnly: true
+        entity_id:
+          type: integer
+          nullable: true
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - entity_id
+      - entity_type
+      - has_children
+      - has_cover
+      - id
+      - title
+      - updated_at
+    PageRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        icon:
+          type: string
+          maxLength: 16
+        page_type:
+          type: string
+          minLength: 1
+          description: 'Вільний тип: note, character, location, … або власний.'
+          maxLength: 40
+        aliases:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 120
+          maxItems: 30
+        content: {}
+        base_revision:
+          type: integer
+          minimum: 1
+          writeOnly: true
+      required:
+      - title
     PaginatedAnalysisJobList:
       type: object
       required:
@@ -5758,6 +6627,52 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Membership'
+    PaginatedPageListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageList'
+    PaginatedPropertyList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Property'
     PaginatedRelationshipList:
       type: object
       required:
@@ -6140,6 +7055,44 @@ components:
           maxLength: 120
         notes:
           type: string
+    PatchedPageRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        icon:
+          type: string
+          maxLength: 16
+        page_type:
+          type: string
+          minLength: 1
+          description: 'Вільний тип: note, character, location, … або власний.'
+          maxLength: 40
+        aliases:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 120
+          maxItems: 30
+        content: {}
+        base_revision:
+          type: integer
+          minimum: 1
+          writeOnly: true
+    PatchedPropertyRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 80
+        kind:
+          $ref: '#/components/schemas/PropertyKindEnum'
+        value:
+          nullable: true
     PatchedRelationshipRequest:
       type: object
       properties:
@@ -6288,6 +7241,57 @@ components:
         * `exact` - Точна
         * `approximate` - Приблизна
         * `unknown` - Невідома
+    Property:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        label:
+          type: string
+          maxLength: 80
+        kind:
+          $ref: '#/components/schemas/PropertyKindEnum'
+        value:
+          nullable: true
+        order:
+          type: integer
+          readOnly: true
+      required:
+      - id
+      - label
+      - order
+    PropertyKindEnum:
+      enum:
+      - text
+      - number
+      - date
+      - checkbox
+      - tags
+      - page
+      - pages
+      type: string
+      description: |-
+        * `text` - Текст
+        * `number` - Число
+        * `date` - Дата у світі
+        * `checkbox` - Прапорець
+        * `tags` - Список значень
+        * `page` - Посилання на сторінку
+        * `pages` - Посилання на сторінки
+    PropertyRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 80
+        kind:
+          $ref: '#/components/schemas/PropertyKindEnum'
+        value:
+          nullable: true
+      required:
+      - label
     QuickCheckRequest:
       type: object
       properties:
@@ -6497,6 +7501,7 @@ components:
       - relationship
       - dependency
       - membership
+      - page
       type: string
       description: |-
         * `chapter` - Розділ
@@ -6507,6 +7512,7 @@ components:
         * `relationship` - Звʼязок
         * `dependency` - Часова залежність
         * `membership` - Членство
+        * `page` - Сторінка енциклопедії
     SpellcheckRequestRequest:
       type: object
       properties:
@@ -6518,6 +7524,48 @@ components:
           minimum: 1
       required:
       - text
+    Template:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        key:
+          type: string
+          readOnly: true
+        builtin:
+          type: boolean
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        icon:
+          type: string
+          readOnly: true
+        page_type:
+          type: string
+          readOnly: true
+        properties:
+          readOnly: true
+          description: '[{"label": ..., "kind": ...}]'
+        world:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - builtin
+      - created_at
+      - icon
+      - id
+      - key
+      - name
+      - page_type
+      - properties
+      - world
     ThemeEnum:
       enum:
       - dark

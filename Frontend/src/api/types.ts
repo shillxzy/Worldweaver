@@ -61,6 +61,7 @@ export type Character = {
   facts: { label: string; value: string }[]
   notes: string
   has_portrait: boolean
+  page_id: number | null
   memberships: MembershipBrief[]
   created_at: string
   updated_at: string
@@ -68,7 +69,7 @@ export type Character = {
 
 export type Faction = {
   id: number; name: string; description: string; goals: string; ideology: string
-  color: string; emblem: string; members_count: number; created_at: string; updated_at: string
+  color: string; emblem: string; members_count: number; page_id: number | null; created_at: string; updated_at: string
 }
 
 export type Membership = {
@@ -182,7 +183,7 @@ export type Severity = 'info' | 'warning' | 'error'
 export type Decision = 'new' | 'accepted' | 'rejected' | 'ignored'
 
 export type Evidence = {
-  id: number; source_type: 'chapter' | 'lore' | 'character' | 'faction' | 'event' | 'relationship' | 'dependency' | 'membership'
+  id: number; source_type: 'chapter' | 'lore' | 'page' | 'character' | 'faction' | 'event' | 'relationship' | 'dependency' | 'membership'
   source_id: number; source_label: string; quote: string
   position_start: number | null; position_end: number | null; verified: boolean
 }
@@ -211,6 +212,31 @@ export type StyleIssue = { kind: 'style'; rule: string; start: number; end: numb
 export type SpellResult = { spelling: SpellIssue[]; style: StyleIssue[] }
 
 export type SearchResult = {
-  type: 'book' | 'character' | 'faction' | 'lore' | 'event' | 'chapter'
+  type: 'book' | 'page' | 'character' | 'faction' | 'lore' | 'event' | 'chapter'
   id: number; title: string; snippet: string; world?: number; book?: number; category?: string
+}
+
+export type PageEntityType = 'character' | 'faction' | 'lore'
+
+export type PageSummary = {
+  id: number; title: string; icon: string; page_type: string; parent: number | null; sort_order: number
+  aliases: string[]; has_children: boolean; has_cover: boolean
+  entity_type: PageEntityType | null; entity_id: number | null; updated_at: string
+}
+
+export type PropertyKind = 'text' | 'number' | 'date' | 'checkbox' | 'tags' | 'page' | 'pages'
+export type DateValue = { label: string; key: number | null }
+export type PageProperty = { id: number; label: string; kind: PropertyKind; value: unknown; order: number }
+
+export type PageDetail = PageSummary & {
+  content: DocNode; plain_text: string; revision: number; properties: PageProperty[]; created_at: string
+  breadcrumbs: { id: number; title: string; icon: string }[]
+  children: PageSummary[]
+  backlinks: { id: number; title: string; icon: string; page_type: string; origins: ('content' | 'property')[] }[]
+  links: { target_ref: number; origin: 'content' | 'property'; broken: boolean; title: string | null }[]
+}
+
+export type PageTemplateInfo = {
+  key: string; builtin: boolean; id: number | null; name: string; icon: string; page_type: string
+  properties: { label: string; kind: PropertyKind }[]; world: number | null
 }

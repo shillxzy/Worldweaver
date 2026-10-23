@@ -108,6 +108,60 @@ def test_docx_import_split_by_headings_and_formatting(client, book):
     assert first.content["content"][2]["type"] == "bulletList"
 
 
+def novel_docx():
+    """Shaped like a real manuscript: Title-style book name, Heading 2 for prologue, arcs and chapters."""
+    return make_docx([
+        ("Title", "СЯЙВО БЕЗОДНІ", False),
+        ("Heading 2", "ПРОЛОГ", False), (None, "Темрява дихала.", False),
+        ("Heading 2", "Арка: Перший шепіт бурі", False),
+        ("Heading 2", "РОЗДІЛ 1", False), (None, "Буря почалась.", False),
+        ("Heading 2", "РОЗДІЛ 2", False), (None, "Вітер стих.", False),
+        ("Heading 2", "Арка: Азартна гра", False),
+        ("Heading 2", "РОЗДІЛ 3", False), (None, "Карти лягли на стіл.", False),
+        ("Heading 2", "ЕПІЛОГ", False), (None, "Кінець.", False),
+    ])
+
+
+def test_docx_split_ignores_book_title_and_merges_arcs(client, book):
+    r = client.post("/api/v1/import/docx/", {"file": novel_docx(), "book": book.id, "mode": "split_headings"}, format="multipart")
+    assert r.status_code == 201, r.content
+    assert [c["title"] for c in r.json()] == ["ПРОЛОГ", "РОЗДІЛ 1", "РОЗДІЛ 2", "РОЗДІЛ 3", "ЕПІЛОГ"]
+    first_chapter = Chapter.objects.get(pk=r.json()[1]["id"])
+    arc, body = first_chapter.content["content"][:2]
+    assert arc["type"] == "heading" and arc["content"][0]["text"] == "Арка: Перший шепіт бурі"
+    assert body["content"][0]["text"] == "Буря почалась."
+    assert "СЯЙВО" not in "".join(c.plain_text for c in Chapter.objects.filter(book=book))
+
+
+def test_docx_preview_reports_levels_and_chapters(client):
+    r = client.post("/api/v1/import/docx/preview/", {"file": novel_docx()}, format="multipart")
+    assert r.status_code == 200, r.content
+    data = r.json()
+    assert data["split_level"] == data["suggested_level"] == 2
+    assert [(lv["level"], lv["count"]) for lv in data["levels"]] == [(2, 7)]
+    assert [c["title"] for c in data["chapters"]] == ["ПРОЛОГ", "РОЗДІЛ 1", "РОЗДІЛ 2", "РОЗДІЛ 3", "ЕПІЛОГ"]
+    assert data["chapters"][1]["merged"] == ["Арка: Перший шепіт бурі"]
+    assert data["chapters"][1]["word_count"] > 2  # the carried arc heading counts toward the chapter text
+
+
+def test_docx_split_level_override_and_single_top_heading(client, book):
+    # One Heading 1 (a part title) over several Heading 2 chapters: auto split uses level 2, the lead-in keeps the part title.
+    file = make_docx([
+        ("Heading 1", "Частина перша", False), (None, "Вступ.", False),
+        ("Heading 2", "Глава А", False), (None, "Текст А.", False),
+        ("Heading 2", "Глава Б", False), (None, "Текст Б.", False),
+    ])
+    preview = client.post("/api/v1/import/docx/preview/", {"file": file}, format="multipart").json()
+    assert preview["split_level"] == 2
+    assert [c["title"] for c in preview["chapters"]] == ["rukopys", "Глава А", "Глава Б"]
+    file.seek(0)
+    r = client.post("/api/v1/import/docx/", {"file": file, "book": book.id, "mode": "split_headings", "split_level": 1}, format="multipart")
+    assert [c["title"] for c in r.json()] == ["Частина перша"]
+    file.seek(0)
+    r = client.post("/api/v1/import/docx/preview/", {"file": file, "split_level": 3}, format="multipart")
+    assert [c["title"] for c in r.json()["chapters"]] == ["rukopys"]
+
+
 def test_docx_import_replace_chapter_and_errors(client, book, chapter, other_client, settings):
     file = make_docx([(None, "Новий текст розділу.", False)])
     r = client.post("/api/v1/import/docx/", {"file": file, "book": book.id, "mode": "replace_chapter", "chapter": chapter.id}, format="multipart")

@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "apps.analysis",
     "apps.ai",
     "apps.language",
+    "apps.pages",
 ]
 
 MIDDLEWARE = [

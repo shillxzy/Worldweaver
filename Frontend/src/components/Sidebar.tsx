@@ -12,7 +12,7 @@ import CoverArt from './CoverArt'
 import Icon from './Icon'
 
 const SECTION_FOR: Record<SearchResult['type'], Section> = {
-  book: 'overview', character: 'characters', faction: 'encyclopedia', lore: 'encyclopedia', event: 'timeline', chapter: 'book',
+  book: 'overview', page: 'encyclopedia', character: 'encyclopedia', faction: 'encyclopedia', lore: 'encyclopedia', event: 'timeline', chapter: 'book',
 }
 
 function GlobalSearch() {

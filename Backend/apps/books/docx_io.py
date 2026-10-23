@@ -20,6 +20,7 @@ from rest_framework.exceptions import ValidationError
 
 DOCX_MAIN_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
 HEADING_RE = re.compile(r"^(heading|заголовок)\s*(\d)$", re.IGNORECASE)
+TITLE_LEVEL = 0
 
 
 class DocxError(ValidationError):
@@ -48,8 +49,8 @@ def _check_package(raw: bytes):
 
 def _heading_level(paragraph):
     style_name = (paragraph.style.name if paragraph.style is not None else "") or ""
-    if style_name.lower() == "title":
-        return 1
+    if style_name.lower() in ("title", "назва"):
+        return TITLE_LEVEL
     match = HEADING_RE.match(style_name.strip())
     if match:
         return max(1, min(3, int(match.group(2))))
@@ -108,7 +109,10 @@ def parse_docx(raw: bytes):
         if not has_text:
             continue
         level = _heading_level(paragraph)
-        if level:
+        if level == TITLE_LEVEL:
+            # The document title (Word "Title" style) is shown as a level-1 heading but never splits chapters.
+            blocks.append({"type": "heading", "level": 1, "title": True, "content": inline})
+        elif level:
             blocks.append({"type": "heading", "level": level, "content": inline})
         elif _is_list(paragraph):
             blocks.append({"type": "list_item", "content": inline})
@@ -141,22 +145,74 @@ def _plain(inline):
     return "".join(n.get("text", "") for n in inline).strip()
 
 
-def split_by_headings(blocks, default_title):
-    """Split blocks into chapters on level-1 headings (or the top-most heading level used)."""
-    levels = [b["level"] for b in blocks if b["type"] == "heading"]
-    if not levels:
-        return [(default_title, blocks_to_document(blocks))]
-    split_level = min(levels)
-    chapters, title, current = [], None, []
+def _is_split_heading(block, level):
+    return block["type"] == "heading" and not block.get("title") and block["level"] == level
+
+
+def heading_levels(blocks):
+    """Heading levels that could split chapters (the Title style is excluded), with counts and samples."""
+    stats = {}
     for block in blocks:
-        if block["type"] == "heading" and block["level"] == split_level:
-            if current or title:
-                chapters.append((title or default_title, blocks_to_document(current)))
-            title, current = _plain(block["content"])[:200] or default_title, []
-        else:
+        if block["type"] != "heading" or block.get("title"):
+            continue
+        entry = stats.setdefault(block["level"], {"level": block["level"], "count": 0, "samples": []})
+        entry["count"] += 1
+        if len(entry["samples"]) < 3:
+            entry["samples"].append(_plain(block["content"])[:80])
+    return [stats[level] for level in sorted(stats)]
+
+
+def choose_split_level(blocks):
+    """The highest heading level used at least twice; a single heading of a level is usually a book or part title."""
+    levels = heading_levels(blocks)
+    repeated = [entry["level"] for entry in levels if entry["count"] >= 2]
+    if repeated:
+        return repeated[0]
+    return levels[0]["level"] if levels else None
+
+
+def plan_chapters(blocks, default_title, split_level=None):
+    """Split blocks into chapters on headings of `split_level` (auto-detected when None).
+
+    - Title-style paragraphs never split; a lead-in made only of them is dropped (it is the book title).
+    - A split heading followed directly by another one (an arc / part heading with no text of its own)
+      does not become an empty chapter: it is kept as an inner heading at the top of the next chapter.
+    Returns a list of dicts: {title, blocks, merged: [carried heading titles], lead_in?: front matter}.
+    """
+    if split_level is None:
+        split_level = choose_split_level(blocks)
+    if split_level is None or not any(_is_split_heading(b, split_level) for b in blocks):
+        return [{"title": default_title, "blocks": list(blocks), "merged": []}]
+
+    chapters, title, current, carried = [], None, [], []
+
+    def flush():
+        body = list(current)
+        if title is None:
+            titles = [_plain(b["content"]) for b in body if b["type"] == "heading" and b.get("title")]
+            if len(titles) == len(body):
+                return  # only the book title before the first chapter
+            # Front matter (epigraph, dedication...) becomes its own opening part named after the book title.
+            chapters.append({"title": (titles[0] if titles else "")[:200] or default_title, "blocks": body, "merged": [], "lead_in": True})
+            return
+        chapters.append({"title": title["text"], "blocks": title["lead"] + body, "merged": title["merged"]})
+
+    for block in blocks:
+        if not _is_split_heading(block, split_level):
             current.append(block)
-    if current or title:
-        chapters.append((title or default_title, blocks_to_document(current)))
+            continue
+        text = _plain(block["content"])[:200] or default_title
+        if title is not None and not current:
+            # The previous heading has no body: carry it into this chapter instead of making an empty one.
+            carried.extend(title["lead"])
+            carried.append({"type": "heading", "level": split_level, "content": title["heading"]})
+            merged = title["merged"] + [title["text"]]
+        else:
+            flush()
+            merged = []
+        title = {"text": text, "heading": block["content"], "lead": carried, "merged": merged}
+        carried, current = [], []
+    flush()
     return chapters
 
 

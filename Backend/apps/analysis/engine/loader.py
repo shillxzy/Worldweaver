@@ -79,7 +79,20 @@ def load_snapshot(world, chapter_qs=None):
             start=point(r.start_key, label=r.start_label), end=point(r.end_key, label=r.end_label),
             source_world=s_obj.world_id, target_world=t_obj.world_id, world_id=r.world_id,
         ))
-    for entry in LoreEntry.objects.filter(world=world).prefetch_related("tags"):
+    # World knowledge comes from encyclopedia pages; legacy lore entries without a page are still included.
+    from apps.pages.models import Page
+
+    pages = list(Page.objects.filter(world=world).prefetch_related("properties"))
+    profiles = {p.character_id: p.plain_text for p in pages if p.character_id}
+    for c in snap.characters:
+        c.profile = (profiles.get(c.id) or "")[:800]
+    for page in pages:
+        tags = [v for prop in page.properties.all() if prop.kind == "tags" and isinstance(prop.value, list) for v in prop.value]
+        text = page.plain_text
+        if page.aliases:
+            text = "Інші назви: " + ", ".join(page.aliases) + "\n" + text
+        snap.lore.append(LoreS(page.id, page.title, text, page.page_type, tags, source_type="page"))
+    for entry in LoreEntry.objects.filter(world=world, page__isnull=True).prefetch_related("tags"):
         snap.lore.append(LoreS(entry.id, entry.title, entry.content, entry.category, [t.name for t in entry.tags.all()]))
     chapters = chapter_qs if chapter_qs is not None else Chapter.objects.filter(book__world=world)
     for ch in chapters.only("id", "title", "order", "plain_text", "book_id", "story_time_key", "story_time_label", "is_flashback", "narrator_unreliable"):

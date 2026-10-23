@@ -51,8 +51,8 @@ function renderRoute(route: Route, book: Book | undefined): ReactNode {
       if (!book) return null
       switch (route.section) {
         case 'overview': return <Overview book={book} />
-        case 'encyclopedia': return <Encyclopedia book={book} focus={route.focus} />
-        case 'characters': return <Characters book={book} focus={route.focus} />
+        case 'encyclopedia': return <Encyclopedia key={book.id} book={book} focus={route.focus} pageId={route.pageId} />
+        case 'characters': return <Characters book={book} />
         case 'graph': return <Suspense fallback={<Loading />}><Graph book={book} /></Suspense>
         case 'diary': return <Diary book={book} />
         case 'book': return <BookPage book={book} focus={route.focus} />
@@ -186,6 +186,7 @@ export default function App() {
 
   const book = route.page === 'project' ? books.find((b) => b.id === route.bookId) : undefined
   const missingBook = route.page === 'project' && !book && !booksLoading
+  // Encyclopedia keeps one mounted layout while switching pages (the tree should not re-animate).
   const pageKey = route.page === 'project' ? `${route.bookId}${route.section}` : route.page
 
   return (

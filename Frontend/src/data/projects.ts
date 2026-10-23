@@ -33,3 +33,6 @@ export const SECTIONS: { id: Section; icon: IconName }[] = [
 ]
 
 export const ACCENTS = ['#3fb8c9', '#c58bff', '#e0b36a', '#e879a8', '#6fd1a0', '#7aa2ff']
+
+/** Suggested encyclopedia page types; authors can also type their own. */
+export const PAGE_TYPES = ['note', 'character', 'faction', 'location', 'item', 'creature', 'event', 'lore', 'magic', 'culture', 'religion', 'rules']

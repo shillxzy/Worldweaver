@@ -172,8 +172,8 @@ def test_timeline_events_order_participants_and_dependencies(client, world, chap
 
 
 def test_world_search(client, world, chapter):
-    Character.objects.create(world=world, name="Ейра Вальмонт", summary="Картографка")
+    client.post(f"{base(world)}/characters/", {"name": "Ейра Вальмонт", "summary": "Картографка"}, format="json")
     r = client.get(f"{base(world)}/search/?q=ейра").json()
     types = {item["type"] for item in r["results"]}
-    assert {"character", "chapter"} <= types
+    assert {"page", "chapter"} <= types
     assert client.get("/api/v1/search/?q=Сяйво").json()["results"][0]["type"] == "book"

@@ -1,127 +1,221 @@
-import { useMemo, useState } from 'react'
-import { charactersApi } from '../api/characters'
-import { factionsApi } from '../api/factions'
-import { loreApi } from '../api/lore'
-import type { Book, Character, Faction, LoreEntry } from '../api/types'
-import { CharacterForm, FactionForm, LoreForm } from '../components/EntityForms'
-import Header from '../components/Header'
-import Icon from '../components/Icon'
-import { Empty, ErrorState, Loading } from '../components/Ui'
-import { CATEGORY_BY_KIND, KIND_BY_CATEGORY, TYPES, TYPE_META } from '../data/projects'
-import { useAsync } from '../hooks'
+import { useEffect, useMemo, useState } from 'react'
+import { ApiError } from '../api/client'
+import { pagesApi } from '../api/pages'
+import type { Book, PageSummary, PageTemplateInfo } from '../api/types'
+import PageTree from '../components/PageTree'
+import PageView from '../components/PageView'
+import { PAGE_TYPES } from '../data/projects'
+import { Empty, ErrorState, Loading, Modal } from '../components/Ui'
+import { errorText, useAsync, useBusy } from '../hooks'
+import { navigate, pagePath, projectPath } from '../router'
 import { useApp } from '../settings-context'
-import type { EntryKind } from '../types'
-import { cssVars } from '../utils'
 
-type Row = { key: string; kind: EntryKind; name: string; desc: string; extra?: string; open: () => void }
-type Editing =
-  | { kind: 'character'; item?: Character }
-  | { kind: 'faction'; item?: Faction }
-  | { kind: 'lore'; item?: LoreEntry; category?: EntryKind }
-  | null
+const RECENT_LIMIT = 8
 
-export default function Encyclopedia({ book, focus }: { book: Book; focus?: string }) {
-  const { t } = useApp()
+function readRecent(key: string): number[] {
+  try { return (JSON.parse(localStorage.getItem(key) ?? '[]') as number[]).filter(Number.isInteger) } catch { return [] }
+}
+
+/**
+ * The world's encyclopedia: a tree of free-form pages. `pageId` opens a page in the main area
+ * (its own URL); without it the home view offers search, type filters and recent pages.
+ * `focus=character:ID` (search results, analysis evidence) resolves to the record's page.
+ */
+export default function Encyclopedia({ book, focus, pageId }: { book: Book; focus?: string; pageId?: number }) {
+  const { t, notify } = useApp()
   const worldId = book.world
-  const [type, setType] = useState<'Усе' | EntryKind>('Усе')
-  const [query, setQuery] = useState('')
-  const [chosen, setChosen] = useState<Editing>(null)
-  const [focusDismissed, setFocusDismissed] = useState(false)
-  const [adding, setAdding] = useState(false)
-  const data = useAsync(async (signal) => {
-    const [characters, factions, lore] = await Promise.all([
-      charactersApi.list(worldId, {}, signal), factionsApi.list(worldId, signal), loreApi.list(worldId, {}, signal),
-    ])
-    return { characters, factions, lore }
-  }, [worldId])
+  const recentKey = `ww-recent-pages-${worldId}`
+  const pagesState = useAsync<PageSummary[]>((signal) => pagesApi.list(worldId, {}, signal), [worldId])
+  const [creating, setCreating] = useState<{ parent: number | null } | null>(null)
+  const [treeHidden, setTreeHidden] = useState(() => {
+    try { return localStorage.getItem('ww-tree-hidden') === '1' } catch { return false }
+  })
+  const pages = useMemo(() => pagesState.data ?? [], [pagesState.data])
+  const open = (id: number) => navigate(pagePath(book.id, id))
 
-  // A search result link (#…?focus=faction:ID / lore:ID) opens that entry once.
-  const focused = useMemo<Editing>(() => {
-    if (!focus || focusDismissed || !data.data) return null
-    const [kind, id] = focus.split(':')
-    const n = Number(id)
-    const f = kind === 'faction' ? data.data.factions.find((x) => x.id === n) : undefined
-    if (f) return { kind: 'faction', item: f }
-    const l = kind === 'lore' ? data.data.lore.find((x) => x.id === n) : undefined
-    return l ? { kind: 'lore', item: l } : null
-  }, [focus, focusDismissed, data.data])
-  const editing = chosen ?? focused
-  const setEditing = (value: Editing) => { setChosen(value); if (!value) setFocusDismissed(true) }
+  // Resolve legacy/entity focus links (e.g. from search or analysis evidence) to the page URL.
+  useEffect(() => {
+    if (!focus || pageId) return
+    const [type, raw] = focus.split(':')
+    const id = Number(raw)
+    if (!Number.isInteger(id)) return
+    const target = type === 'page' ? Promise.resolve({ id }) : pagesApi.byEntity(worldId, type, id)
+    target.then((p) => navigate(pagePath(book.id, p.id))).catch((err) => notify(errorText(err), 'error'))
+  }, [focus, pageId, worldId, book.id, notify])
 
-  const rows = useMemo<Row[]>(() => {
-    if (!data.data) return []
-    const { characters, factions, lore } = data.data
-    return [
-      ...characters.map((c) => ({
-        key: 'c' + c.id, kind: 'Персонаж' as EntryKind, name: c.name, desc: c.summary || c.biography.slice(0, 140),
-        extra: [c.aliases.join(', '), c.biography, c.abilities].join(' '), open: () => setEditing({ kind: 'character', item: c }),
-      })),
-      ...factions.map((f) => ({
-        key: 'f' + f.id, kind: 'Фракція' as EntryKind, name: f.name, desc: f.description.slice(0, 160),
-        extra: f.goals + ' ' + f.ideology, open: () => setEditing({ kind: 'faction', item: f }),
-      })),
-      ...lore.map((l) => ({
-        key: 'l' + l.id, kind: KIND_BY_CATEGORY[l.category] ?? ('Лор' as EntryKind), name: l.title,
-        desc: l.content.slice(0, 160), extra: l.tags.join(' ') + ' ' + l.content, open: () => setEditing({ kind: 'lore', item: l }),
-      })),
-    ].sort((a, b) => a.name.localeCompare(b.name, 'uk'))
-  }, [data.data])
+  // Remember recently opened pages (per browser, a convenience only).
+  useEffect(() => {
+    if (!pageId) return
+    try {
+      const next = [pageId, ...readRecent(recentKey).filter((x) => x !== pageId)].slice(0, RECENT_LIMIT)
+      localStorage.setItem(recentKey, JSON.stringify(next))
+    } catch { /* storage unavailable */ }
+  }, [pageId, recentKey])
 
-  const q = query.trim().toLocaleLowerCase('uk')
-  const list = rows.filter((r) => (type === 'Усе' || r.kind === type) && (!q || (r.name + ' ' + r.desc + ' ' + (r.extra ?? '')).toLocaleLowerCase('uk').includes(q)))
-  const label = (k: string) => t(k === 'Усе' ? 'type.all' : 'type.' + k)
+  const upsert = (p: PageSummary) => pagesState.setData((prev) => {
+    const list = prev ?? []
+    return list.some((x) => x.id === p.id) ? list.map((x) => (x.id === p.id ? { ...x, ...pickSummary(p) } : x)) : [...list, pickSummary(p)]
+  })
 
-  const startAdd = (kind: EntryKind) => {
-    setAdding(false)
-    if (kind === 'Персонаж') setEditing({ kind: 'character' })
-    else if (kind === 'Фракція') setEditing({ kind: 'faction' })
-    else setEditing({ kind: 'lore', category: kind })
+  const move = (id: number, parent: number | null, position?: number) => {
+    pagesApi.move(worldId, id, parent, position).then(() => pagesState.reload()).catch((err) => notify(errorText(err), 'error'))
   }
-  const saved = () => data.reload()
+
+  const toggleTree = () => {
+    const next = !treeHidden
+    setTreeHidden(next)
+    try { localStorage.setItem('ww-tree-hidden', next ? '1' : '') } catch { /* optional convenience */ }
+  }
 
   return (
-    <>
-      <div className="page-head">
-        <Header title={t('s.encyclopedia')} sub={`${t('enc.sub')} «${book.world_name}».`} />
-        <div className="menu-wrap">
-          <button className="btn" onClick={() => setAdding(!adding)}>+ {t('ui.add')}</button>
-          {adding && (
-            <div className="menu">
-              {TYPES.slice(1).map((k) => <button key={k} onClick={() => startAdd(k as EntryKind)}><Icon n={TYPE_META[k as EntryKind].icon} />{label(k)}</button>)}
-            </div>
-          )}
+    <div className={'enc-layout' + (treeHidden ? ' tree-hidden' : '')}>
+      {treeHidden && (
+        <button className="tree-show" onClick={toggleTree} title={t('enc.showTree')} aria-label={t('enc.showTree')}>☰</button>
+      )}
+      <aside className="enc-side" hidden={treeHidden}>
+        <div className="enc-side-head">
+          <button className="link enc-home" onClick={() => navigate(projectPath(book.id, 'encyclopedia'))}>{t('s.encyclopedia')}</button>
+          <button className="btn-ghost small" onClick={() => setCreating({ parent: null })}>+ {t('enc.newPage')}</button>
+          <button className="icon-btn" onClick={toggleTree} title={t('enc.hideTree')} aria-label={t('enc.hideTree')}>⟨</button>
         </div>
+        <ErrorState error={pagesState.error} onRetry={pagesState.reload} />
+        {pagesState.loading && !pagesState.data ? <Loading /> : (
+          <PageTree pages={pages} currentId={pageId} storageKey={`ww-tree-${worldId}`} onOpen={open}
+            onCreateChild={(parent) => setCreating({ parent })} onMove={move} />
+        )}
+      </aside>
+      <main className="enc-main">
+        {pageId ? (
+          <PageView key={pageId} worldId={worldId} pageId={pageId} pages={pages} onOpen={open} onChanged={upsert}
+            onCreateChild={(parent) => setCreating({ parent })}
+            onDeleted={() => { pagesState.reload(); navigate(projectPath(book.id, 'encyclopedia')) }} />
+        ) : (
+          <Home book={book} pages={pages} loading={pagesState.loading && !pagesState.data} recent={readRecent(recentKey)} onOpen={open}
+            onNew={() => setCreating({ parent: null })} />
+        )}
+      </main>
+      {creating && (
+        <TemplatePicker worldId={worldId} onClose={() => setCreating(null)} onCreated={(p) => {
+          setCreating(null)
+          pagesState.reload()
+          open(p.id)
+        }} parent={creating.parent} />
+      )}
+    </div>
+  )
+}
+
+function pickSummary(p: PageSummary): PageSummary {
+  const { id, title, icon, page_type, parent, sort_order, aliases, has_children, has_cover, entity_type, entity_id, updated_at } = p
+  return { id, title, icon, page_type, parent, sort_order, aliases, has_children, has_cover, entity_type, entity_id, updated_at }
+}
+
+function Home({ book, pages, loading, recent, onOpen, onNew }: {
+  book: Book; pages: PageSummary[]; loading: boolean; recent: number[]; onOpen: (id: number) => void; onNew: () => void
+}) {
+  const { t, notify } = useApp()
+  const [q, setQ] = useState('')
+  const [type, setType] = useState('')
+  const [found, setFound] = useState<PageSummary[] | null>(null)
+  const query = q.trim()
+
+  // Server-side search covers titles, other names and the full text.
+  useEffect(() => {
+    if (query.length < 2) return
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      pagesApi.list(book.world, { search: query }, controller.signal).then(setFound)
+        .catch((err: unknown) => { if (!(err instanceof ApiError && err.isAborted)) notify(errorText(err), 'error') })
+    }, 250)
+    return () => { window.clearTimeout(timer); controller.abort() }
+  }, [query, book.world, notify])
+
+  const types = [...new Set(pages.map((p) => p.page_type))]
+  const source = query.length >= 2 && found ? found : pages
+  const list = source.filter((p) => !type || p.page_type === type).sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+  const recentPages = recent.map((id) => pages.find((p) => p.id === id)).filter((p): p is PageSummary => Boolean(p))
+  const typeLabel = (x: string) => (PAGE_TYPES.includes(x) ? t('ptype.' + x) : x)
+
+  if (loading) return <Loading />
+  if (pages.length === 0) {
+    return <Empty title={t('enc.emptyTitle')} text={t('enc.emptyPagesText')} action={<button className="btn" onClick={onNew}>+ {t('enc.newPage')}</button>} />
+  }
+  return (
+    <div className="enc-home-view">
+      <h1>{t('s.encyclopedia')}</h1>
+      <p className="sub">{t('enc.sub')} «{book.world_name}».</p>
+      <input className="field" placeholder={t('enc.searchPages')} value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="tabs">
+        <button className={'tab' + (!type ? ' on' : '')} onClick={() => setType('')}>{t('type.all')}</button>
+        {types.map((x) => <button key={x} className={'tab' + (type === x ? ' on' : '')} onClick={() => setType(x)}>{typeLabel(x)}</button>)}
       </div>
-      <div className="toolbar">
-        <div className="tabs">
-          {TYPES.map((k) => <button key={k} className={'tab' + (k === type ? ' on' : '')} onClick={() => setType(k)}>{label(k)}</button>)}
-        </div>
-        <input className="field search-field" placeholder={t('ui.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
-      </div>
-      <ErrorState error={data.error} onRetry={data.reload} />
-      {data.loading && !data.data ? <Loading /> : rows.length === 0 ? (
-        <Empty title={t('enc.emptyTitle')} text={t('enc.emptyText')} action={<button className="btn" onClick={() => setAdding(true)}>+ {t('ui.add')}</button>} />
-      ) : list.length === 0 ? <p className="muted">{t('ui.nothing')}</p> : (
-        <div>
-          {list.map((e) => {
-            const m = TYPE_META[e.kind]
-            return (
-              <button className="row" key={e.key} style={cssVars({ '--t': m.color })} onClick={e.open}>
-                <div className="chip"><Icon n={m.icon} /></div>
-                <h3>{e.name}</h3>
-                <span className="tag">{label(e.kind)}</span>
-                <p>{e.desc}</p>
-              </button>
-            )
-          })}
+      {!query && !type && recentPages.length > 0 && (
+        <section>
+          <p className="label first">{t('enc.recent')}</p>
+          <div className="recent-row">
+            {recentPages.map((p) => <button key={p.id} className="recent-card" onClick={() => onOpen(p.id)}><span>{p.icon || '·'}</span>{p.title}</button>)}
+          </div>
+        </section>
+      )}
+      <section>
+        <p className="label first">{query ? t('enc.results') : t('enc.allPages')} · {list.length}</p>
+        {list.length === 0 && <p className="muted">{t('ui.nothing')}</p>}
+        {list.map((p) => (
+          <button key={p.id} className="page-row" onClick={() => onOpen(p.id)}>
+            <span className="tree-icon">{p.icon || '·'}</span>
+            <b>{p.title}</b>
+            <span className="tag">{typeLabel(p.page_type)}</span>
+            <small className="muted">{new Date(p.updated_at).toLocaleDateString()}</small>
+          </button>
+        ))}
+      </section>
+    </div>
+  )
+}
+
+function TemplatePicker({ worldId, parent, onClose, onCreated }: {
+  worldId: number; parent: number | null; onClose: () => void; onCreated: (p: PageSummary) => void
+}) {
+  const { t, notify } = useApp()
+  const templates = useAsync<PageTemplateInfo[]>(() => pagesApi.templates(worldId), [worldId])
+  const [title, setTitle] = useState('')
+  const [choice, setChoice] = useState<PageTemplateInfo | null>(null)
+  const { busy, run } = useBusy()
+  const create = (tpl: PageTemplateInfo | null) => void run(async () => {
+    try {
+      const page = await pagesApi.create(worldId, {
+        title: title.trim() || t('enc.untitled'), parent,
+        ...(tpl?.builtin ? { template: tpl.key } : tpl?.id ? { user_template: tpl.id } : {}),
+      })
+      onCreated(page)
+    } catch (err) { notify(errorText(err), 'error') }
+  })
+  return (
+    <Modal title={parent ? t('enc.addSubpage') : t('enc.newPage')} onClose={onClose} wide footer={<>
+      <button className="btn-ghost" onClick={onClose}>{t('ui.cancel')}</button>
+      <button className="btn" disabled={busy} onClick={() => create(choice)}>{t('ui.create')}</button>
+    </>}>
+      <input className="field page-title-input" autoFocus placeholder={t('enc.titlePh')} value={title} onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') create(choice) }} />
+      <p className="muted">{t('enc.templateHint')}</p>
+      {templates.loading && !templates.data ? <Loading /> : (
+        <div className="template-grid">
+          {templates.data?.map((tpl) => (
+            <button key={tpl.key} className={'template-card' + ((choice?.key ?? 'blank') === tpl.key ? ' on' : '')}
+              onClick={() => setChoice(tpl.key === 'blank' ? null : tpl)} onDoubleClick={() => create(tpl.key === 'blank' ? null : tpl)}>
+              <span className="tpl-icon">{tpl.icon || '📄'}</span>
+              <b>{tpl.name}</b>
+              <small>{tpl.properties.length ? tpl.properties.map((p) => p.label).join(', ') : t('enc.freeText')}</small>
+              {!tpl.builtin && tpl.id && (
+                <span className="link danger-text tpl-del" role="button" onClick={(e) => {
+                  e.stopPropagation()
+                  void pagesApi.removeTemplate(tpl.id!).then(templates.reload).catch((err) => notify(errorText(err), 'error'))
+                }}>{t('ui.delete')}</span>
+              )}
+            </button>
+          ))}
         </div>
       )}
-      {editing?.kind === 'character' && <CharacterForm worldId={worldId} character={editing.item} onClose={() => setEditing(null)} onSaved={saved} />}
-      {editing?.kind === 'faction' && <FactionForm worldId={worldId} faction={editing.item} onClose={() => setEditing(null)} onSaved={saved} />}
-      {editing?.kind === 'lore' && (
-        <LoreForm worldId={worldId} entry={editing.item} defaultCategory={editing.category ? CATEGORY_BY_KIND[editing.category] : undefined}
-          onClose={() => setEditing(null)} onSaved={saved} />
-      )}
-    </>
+    </Modal>
   )
 }

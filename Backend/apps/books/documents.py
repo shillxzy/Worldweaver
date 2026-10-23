@@ -5,6 +5,7 @@ attributes is accepted, depth and size are bounded, and nothing in the document 
 ever executed or rendered as HTML on the server.
 """
 import json
+import re
 
 from django.conf import settings
 from rest_framework.exceptions import ValidationError
@@ -14,7 +15,9 @@ from apps.common.text import count_words
 BLOCK_NODES = {"paragraph", "heading", "blockquote", "bulletList", "orderedList", "listItem", "horizontalRule"}
 INLINE_NODES = {"text", "hardBreak"}
 ALLOWED_NODES = {"doc"} | BLOCK_NODES | INLINE_NODES
-ALLOWED_MARKS = {"bold", "italic", "underline", "strike"}
+ALLOWED_MARKS = {"bold", "italic", "underline", "strike", "link"}
+# Internal links point to encyclopedia pages ("page:<id>"); external links only http(s)/mailto.
+LINK_HREF_RE = re.compile(r"^(page:\d{1,18}|https?://[^\s<>\"']{1,2000}|mailto:[^\s<>\"']{1,320})$")
 ALLOWED_ATTRS = {
     "heading": {"level": lambda v: isinstance(v, int) and 1 <= v <= 3, "textAlign": lambda v: v in (None, "left", "center", "right", "justify")},
     "paragraph": {"textAlign": lambda v: v in (None, "left", "center", "right", "justify")},
@@ -62,6 +65,12 @@ def validate_document(doc):
             for mark in marks:
                 if not isinstance(mark, dict) or mark.get("type") not in ALLOWED_MARKS:
                     _fail("Недозволене форматування тексту.")
+                if mark["type"] == "link":
+                    href = (mark.get("attrs") or {}).get("href")
+                    if not isinstance(href, str) or not LINK_HREF_RE.match(href):
+                        _fail("Недозволене посилання: дозволені сторінки енциклопедії, http(s) і mailto.")
+                    clean_marks.append({"type": "link", "attrs": {"href": href}})
+                    continue
                 clean_marks.append({"type": mark["type"]})
             if clean_marks:
                 out["marks"] = clean_marks
@@ -155,3 +164,19 @@ def text_to_document(text: str) -> dict:
 def document_stats(doc):
     text = document_to_text(doc)
     return text, count_words(text)
+
+
+def page_link_ids(doc):
+    """Ids of encyclopedia pages referenced by link marks (``href="page:<id>"``)."""
+    ids = []
+
+    def walk(node):
+        for mark in node.get("marks", []) or []:
+            href = (mark.get("attrs") or {}).get("href", "") if mark.get("type") == "link" else ""
+            if href.startswith("page:"):
+                ids.append(int(href[5:]))
+        for child in node.get("content", []) or []:
+            walk(child)
+
+    walk(doc)
+    return list(dict.fromkeys(ids))

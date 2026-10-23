@@ -18,7 +18,7 @@ from apps.common.exceptions import Conflict
 from apps.common.images import clear_image, image_response, replace_image
 from apps.common.scoping import parse_id
 
-from .docx_io import export_docx, parse_docx, blocks_to_document, split_by_headings
+from .docx_io import export_docx, parse_docx, blocks_to_document, choose_split_level, heading_levels, plan_chapters
 from .documents import document_stats
 from .models import Book, Chapter, ChapterVersion
 from .serializers import (
@@ -28,6 +28,7 @@ from .serializers import (
     ChapterVersionDetailSerializer,
     ChapterVersionSerializer,
     DocxImportSerializer,
+    DocxPreviewSerializer,
     ReorderSerializer,
 )
 
@@ -235,6 +236,44 @@ def maybe_snapshot(chapter, reason, force=False):
     return version
 
 
+def _too_large():
+    return Response(
+        {"error": {"code": "validation_error", "message": "Файл завеликий.", "details": None}},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+
+def _default_title(data, upload):
+    return (data.get("title") or upload.name.rsplit(".", 1)[0] or "Імпортований розділ")[:200]
+
+
+class DocxPreviewView(APIView):
+    """Dry run of the heading split: what chapters an import would create, without saving anything."""
+
+    parser_classes = [MultiPartParser]
+
+    @extend_schema(request={"multipart/form-data": DocxPreviewSerializer}, responses=None)
+    def post(self, request):
+        serializer = DocxPreviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        upload = data["file"]
+        if upload.size > settings.WW_MAX_DOCX_BYTES:
+            return _too_large()
+        blocks = parse_docx(upload.read())
+        level = data.get("split_level") or choose_split_level(blocks)
+        chapters = []
+        for part in plan_chapters(blocks, _default_title(data, upload), level):
+            _, words = document_stats(blocks_to_document(part["blocks"]))
+            chapters.append({"title": part["title"], "word_count": words, "merged": part["merged"], "lead_in": part.get("lead_in", False)})
+        return Response({
+            "levels": heading_levels(blocks),
+            "split_level": level,
+            "suggested_level": choose_split_level(blocks),
+            "chapters": chapters,
+        })
+
+
 class DocxImportView(APIView):
     parser_classes = [MultiPartParser]
 
@@ -246,12 +285,9 @@ class DocxImportView(APIView):
         book = get_object_or_404(owned_books(request.user), pk=parse_id(data["book"]) or 0)
         upload = data["file"]
         if upload.size > settings.WW_MAX_DOCX_BYTES:
-            return Response(
-                {"error": {"code": "validation_error", "message": "Файл завеликий.", "details": None}},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return _too_large()
         blocks = parse_docx(upload.read())
-        default_title = (data.get("title") or upload.name.rsplit(".", 1)[0] or "Імпортований розділ")[:200]
+        default_title = _default_title(data, upload)
 
         with transaction.atomic():
             if data["mode"] == "replace_chapter":
@@ -264,7 +300,10 @@ class DocxImportView(APIView):
                 created = [chapter]
             else:
                 if data["mode"] == "split_headings":
-                    parts = split_by_headings(blocks, default_title)
+                    parts = [
+                        (part["title"], blocks_to_document(part["blocks"]))
+                        for part in plan_chapters(blocks, default_title, data.get("split_level"))
+                    ]
                 else:
                     parts = [(default_title, blocks_to_document(blocks))]
                 last = Chapter.objects.select_for_update().filter(book=book).aggregate(m=Max("order"))["m"]

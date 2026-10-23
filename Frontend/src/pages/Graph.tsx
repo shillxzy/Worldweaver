@@ -9,8 +9,9 @@ import { charactersApi } from '../api/characters'
 import { factionsApi } from '../api/factions'
 import { relationshipsApi } from '../api/relationships'
 import type { Book, Character, CharacterStatus, Faction, Membership, Relationship, RelationshipKind } from '../api/types'
+import { pagesApi } from '../api/pages'
 import { worldsApi } from '../api/worlds'
-import { CharacterForm, FactionForm } from '../components/EntityForms'
+import { navigate, pagePath } from '../router'
 import { forceLayout } from '../components/graphLayout'
 import Header from '../components/Header'
 import { Confirm, ErrorState, Loading, Modal } from '../components/Ui'
@@ -79,7 +80,6 @@ export default function Graph({ book }: { book: Book }) {
   const [selected, setSelected] = useState<{ type: 'node' | 'edge'; id: string } | null>(null)
   const [connecting, setConnecting] = useState<{ source: NodeKey; target: NodeKey } | null>(null)
   const [creating, setCreating] = useState<'character' | 'faction' | null>(null)
-  const [editing, setEditing] = useState<{ type: 'character'; item: Character } | { type: 'faction'; item: Faction } | null>(null)
   const [deleting, setDeleting] = useState<{ label: string; run: () => Promise<unknown> } | null>(null)
   const saveTimer = useRef<number | undefined>(undefined)
   const { busy, run } = useBusy()
@@ -185,6 +185,11 @@ export default function Graph({ book }: { book: Book }) {
   }
 
   const reload = data.reload
+  /** Characters and factions are edited on their encyclopedia page (created on demand if missing). */
+  const openPage = (type: 'character' | 'faction', id: number, pageId: number | null) => {
+    if (pageId) { navigate(pagePath(book.id, pageId)); return }
+    pagesApi.byEntity(worldId, type, id).then((p) => navigate(pagePath(book.id, p.id))).catch((err) => notify(errorText(err), 'error'))
+  }
   const guard = (action: () => Promise<unknown>) => void run(async () => {
     try { await action(); reload() } catch (err) { notify(errorText(err), 'error') }
   })
@@ -250,7 +255,7 @@ export default function Graph({ book }: { book: Book }) {
               </div>
             )}
             {selectedChar && (
-              <NodePanel key={selectedChar.id} title={selectedChar.name} onEdit={() => setEditing({ type: 'character', item: selectedChar })}
+              <NodePanel key={selectedChar.id} title={selectedChar.name} onEdit={() => openPage('character', selectedChar.id, selectedChar.page_id)}
                 onDelete={() => setDeleting({ label: selectedChar.name, run: () => charactersApi.remove(worldId, selectedChar.id) })}>
                 <label>{t('cf.status')}
                   <select className="field" value={selectedChar.status} disabled={busy}
@@ -264,7 +269,7 @@ export default function Graph({ book }: { book: Book }) {
               </NodePanel>
             )}
             {selectedFaction && (
-              <NodePanel key={selectedFaction.id} title={selectedFaction.name} onEdit={() => setEditing({ type: 'faction', item: selectedFaction })}
+              <NodePanel key={selectedFaction.id} title={selectedFaction.name} onEdit={() => openPage('faction', selectedFaction.id, selectedFaction.page_id)}
                 onDelete={() => setDeleting({ label: selectedFaction.name, run: () => factionsApi.remove(worldId, selectedFaction.id) })}>
                 <label>{t('ui.color')}
                   <input className="field color" type="color" defaultValue={selectedFaction.color}
@@ -311,8 +316,6 @@ export default function Graph({ book }: { book: Book }) {
       {creating && (
         <QuickCreate kind={creating} worldId={worldId} onClose={() => setCreating(null)} onDone={() => { setCreating(null); reload() }} />
       )}
-      {editing?.type === 'character' && <CharacterForm worldId={worldId} character={editing.item} onClose={() => setEditing(null)} onSaved={reload} />}
-      {editing?.type === 'faction' && <FactionForm worldId={worldId} faction={editing.item} onClose={() => setEditing(null)} onSaved={reload} />}
       {deleting && (
         <Confirm title={t('ui.confirmDelete')} text={deleting.label} confirmLabel={t('ui.delete')} busy={busy}
           onCancel={() => setDeleting(null)}

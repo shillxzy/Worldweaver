@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react'
 import { authApi } from '../api/auth'
 import { booksApi } from '../api/books'
 import { chaptersApi } from '../api/chapters'
-import type { ImportMode } from '../api/chapters'
+import type { ImportMode, ImportPreview } from '../api/chapters'
 import type { Book, Chapter, ChapterSummary, UserSettings } from '../api/types'
 import CoverArt from '../components/CoverArt'
 import Header from '../components/Header'
@@ -166,26 +166,40 @@ function ImportDialog({ book, chapters, activeId, onClose, onDone }: {
   const [file, setFile] = useState<File | null>(null)
   const [mode, setMode] = useState<ImportMode>('split_headings')
   const [target, setTarget] = useState<number | null>(activeId)
+  const [level, setLevel] = useState<number | null>(null)
   const [error, setError] = useState('')
   const { busy, run } = useBusy()
+  const tooLarge = !!file && file.size > MAX_DOCX_BYTES
+  const wantPreview = !!file && !tooLarge && mode === 'split_headings'
+  const preview = useAsync<ImportPreview | null>(
+    (signal) => (wantPreview && file ? chaptersApi.previewDocx(file, level ?? undefined, signal) : Promise.resolve(null)),
+    [wantPreview, file?.name, file?.size, file?.lastModified, level],
+  )
+  const plan = wantPreview ? preview.data : null
+  const pickFile = (next: File | null) => {
+    setFile(next); setLevel(null)
+    setError(next && next.size > MAX_DOCX_BYTES ? t('bk.tooLarge') : '')
+  }
   const submit = () => {
-    if (!file) return
-    if (file.size > 10 * 1024 * 1024) { setError(t('bk.tooLarge')); return }
+    if (!file || tooLarge) return
     void run(async () => {
       try {
-        const created = await chaptersApi.importDocx(book.id, file, mode, mode === 'replace_chapter' ? target ?? undefined : undefined)
+        const created = await chaptersApi.importDocx(book.id, file, mode, mode === 'replace_chapter' ? target ?? undefined : undefined,
+          mode === 'split_headings' ? plan?.split_level ?? undefined : undefined)
         notify(t('bk.imported'))
         onDone(created)
       } catch (err) { setError(errorText(err)) }
     })
   }
   return (
-    <Modal title={t('bk.import')} onClose={onClose} footer={<>
+    <Modal title={t('bk.import')} onClose={onClose} wide={wantPreview} footer={<>
       <button className="btn-ghost" onClick={onClose}>{t('ui.cancel')}</button>
-      <button className="btn" disabled={!file || busy} onClick={submit}>{busy ? t('ui.loading') : t('bk.importGo')}</button>
+      <button className="btn" disabled={!file || tooLarge || busy || (wantPreview && (preview.loading || !!preview.error))} onClick={submit}>
+        {busy ? t('ui.loading') : plan ? t('bk.importCount').replace('{n}', String(plan.chapters.length)) : t('bk.importGo')}
+      </button>
     </>}>
       <div className="form">
-        <input type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setError('') }} />
+        <input type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
         <label className="check"><input type="radio" checked={mode === 'split_headings'} onChange={() => setMode('split_headings')} />{t('bk.modeSplit')}</label>
         <label className="check"><input type="radio" checked={mode === 'new_chapter'} onChange={() => setMode('new_chapter')} />{t('bk.modeOne')}</label>
         <label className="check"><input type="radio" checked={mode === 'replace_chapter'} disabled={!chapters.length} onChange={() => setMode('replace_chapter')} />{t('bk.modeReplace')}</label>
@@ -194,9 +208,54 @@ function ImportDialog({ book, chapters, activeId, onClose, onDone }: {
             {chapters.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
           </select>
         )}
+        {wantPreview && <ImportPreviewList preview={preview.data ?? null} loading={preview.loading} error={preview.error ? errorText(preview.error) : ''}
+          onLevel={setLevel} />}
         <small className="muted">{t('bk.importHint')}</small>
         {error && <p className="field-error">{error}</p>}
       </div>
     </Modal>
+  )
+}
+
+const MAX_DOCX_BYTES = 10 * 1024 * 1024
+
+function ImportPreviewList({ preview, loading, error, onLevel }: {
+  preview: ImportPreview | null; loading: boolean; error: string; onLevel: (level: number) => void
+}) {
+  const { t } = useApp()
+  if (error) return <p className="field-error">{error}</p>
+  if (!preview) return <p className="muted import-note">{t('bk.previewLoading')}</p>
+  const arcs = preview.chapters.reduce((sum, c) => sum + c.merged.length, 0)
+  return (
+    <div className={`import-preview${loading ? ' stale' : ''}`}>
+      <div className="import-summary">
+        <b>{t('bk.previewFound').replace('{n}', String(preview.chapters.length))}</b>
+        {preview.levels.length > 1 && (
+          <label className="inline-field">{t('bk.splitBy')}
+            <select className="field" value={preview.split_level ?? ''} onChange={(e) => onLevel(Number(e.target.value))}>
+              {preview.levels.map((lv) => (
+                <option key={lv.level} value={lv.level}>
+                  {t('bk.headingLevel').replace('{n}', String(lv.level))} · {lv.count}{lv.level === preview.suggested_level ? ` · ${t('bk.suggested')}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+      {arcs > 0 && <small className="muted">{t('bk.previewArcs').replace('{n}', String(arcs))}</small>}
+      {preview.levels.length === 0 && <small className="muted">{t('bk.previewNoHeadings')}</small>}
+      <ol className="import-list">
+        {preview.chapters.map((c, i) => (
+          <li key={i}>
+            <span className="import-title">
+              {c.title}
+              {c.lead_in && <span className="tag">{t('bk.leadIn')}</span>}
+            </span>
+            <small className="muted">{c.word_count.toLocaleString()} {t('bk.wordsShort')}</small>
+            {c.merged.map((m, j) => <small key={j} className="import-merged">↳ {m}</small>)}
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }

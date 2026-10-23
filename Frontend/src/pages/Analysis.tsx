@@ -14,7 +14,7 @@ const ACTIVE = new Set(['pending', 'running'])
 const CATEGORIES: FindingCategory[] = ['confirmed', 'potential', 'insufficient_data', 'unverified']
 const DECISIONS: Decision[] = ['accepted', 'rejected', 'ignored']
 const EVIDENCE_SECTION: Partial<Record<Evidence['source_type'], Section>> = {
-  chapter: 'book', character: 'characters', faction: 'encyclopedia', lore: 'encyclopedia', event: 'timeline',
+  chapter: 'book', character: 'encyclopedia', faction: 'encyclopedia', lore: 'encyclopedia', page: 'encyclopedia', event: 'timeline',
 }
 
 export default function Analysis({ book }: { book: Book }) {

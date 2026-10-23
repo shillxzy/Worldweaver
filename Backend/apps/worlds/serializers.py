@@ -1,3 +1,4 @@
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from rest_framework import serializers
 
@@ -24,6 +25,13 @@ def _check_range(attrs, instance, start="start_key", end="end_key"):
     end_value = attrs.get(end, getattr(instance, end, None) if instance else None)
     if start_value is not None and end_value is not None and end_value < start_value:
         raise serializers.ValidationError({end: "Кінець не може бути раніше за початок."})
+
+
+def _page_id(record):
+    try:
+        return record.page.id
+    except ObjectDoesNotExist:  # the record has no page yet
+        return None
 
 
 class WorldSerializer(serializers.ModelSerializer):
@@ -75,6 +83,7 @@ class CharacterSerializer(serializers.ModelSerializer):
     facts = FactSerializer(many=True, required=False)
     memberships = MembershipBriefSerializer(many=True, read_only=True)
     has_portrait = serializers.SerializerMethodField()
+    page_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Character
@@ -82,12 +91,15 @@ class CharacterSerializer(serializers.ModelSerializer):
             "id", "name", "aliases", "summary", "biography", "personality", "appearance", "goals",
             "abilities", "age_text", "birth_key", "birth_label", "birth_precision", "death_key",
             "death_label", "death_precision", "status", "facts", "notes", "has_portrait",
-            "memberships", "created_at", "updated_at",
+            "page_id", "memberships", "created_at", "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
 
     def get_has_portrait(self, obj) -> bool:
         return bool(obj.portrait)
+
+    def get_page_id(self, obj) -> int | None:
+        return _page_id(obj)
 
     def validate_aliases(self, value):
         seen, result = set(), []
@@ -109,10 +121,14 @@ class CharacterSerializer(serializers.ModelSerializer):
 
 class FactionSerializer(serializers.ModelSerializer):
     members_count = serializers.IntegerField(read_only=True, default=0)
+    page_id = serializers.SerializerMethodField()
+
+    def get_page_id(self, obj) -> int | None:
+        return _page_id(obj)
 
     class Meta:
         model = Faction
-        fields = ["id", "name", "description", "goals", "ideology", "color", "emblem", "members_count", "created_at", "updated_at"]
+        fields = ["id", "name", "description", "goals", "ideology", "color", "emblem", "members_count", "page_id", "created_at", "updated_at"]
         read_only_fields = ["created_at", "updated_at"]
 
 

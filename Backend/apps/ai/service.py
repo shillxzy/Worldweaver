@@ -99,7 +99,7 @@ class AIService:
         for i, item in enumerate(context.get("lore", []), 1):
             label = f"L{i}"
             entry = item["entry"]
-            labels[label] = ("lore", entry.id, entry.title, item["snippet"])
+            labels[label] = (getattr(entry, "source_type", "lore"), entry.id, entry.title, item["snippet"])
             parts.append(_quote_block(label, f"Лор ({entry.category}): {entry.title}", item["snippet"]))
         return "\n\n".join(parts), labels
 

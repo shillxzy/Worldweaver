@@ -65,8 +65,12 @@ class CharacterViewSet(WorldScopedMixin, viewsets.ModelViewSet):
     ordering_fields = ["name", "created_at", "updated_at", "birth_key"]
     filterset_fields = ["status"]
 
+    def perform_create(self, serializer):
+        # Every structured record gets an encyclopedia page (the page is the main editing surface).
+        _ensure_page(serializer.save(world=self.get_world()), "character")
+
     def get_queryset(self):
-        qs = Character.objects.filter(world=self.get_world()).prefetch_related(
+        qs = Character.objects.filter(world=self.get_world()).select_related("page").prefetch_related(
             Prefetch("memberships", queryset=FactionMembership.objects.select_related("faction"))
         )
         faction = self.request.query_params.get("faction")
@@ -87,15 +91,25 @@ class CharacterViewSet(WorldScopedMixin, viewsets.ModelViewSet):
         return Response(self.get_serializer(character).data)
 
 
+def _ensure_page(record, kind):
+    from apps.pages.services import page_for_record
+
+    page_for_record(record, kind)
+
+
 class FactionViewSet(WorldScopedMixin, viewsets.ModelViewSet):
     queryset = Faction.objects.none()  # schema introspection only; real data comes from get_queryset()
     serializer_class = FactionSerializer
     search_fields = ["name", "description", "goals", "ideology"]
     ordering_fields = ["name", "created_at"]
 
+    def perform_create(self, serializer):
+        # Every structured record gets an encyclopedia page (the page is the main editing surface).
+        _ensure_page(serializer.save(world=self.get_world()), "faction")
+
     def get_queryset(self):
         return (
-            Faction.objects.filter(world=self.get_world())
+            Faction.objects.filter(world=self.get_world()).select_related("page")
             .annotate(members_count=Count("memberships__character", distinct=True))
             .order_by("name", "id")
         )
@@ -119,6 +133,10 @@ class LoreEntryViewSet(WorldScopedMixin, viewsets.ModelViewSet):
     search_fields = ["title", "content", "custom_category", "tags__name"]
     ordering_fields = ["title", "created_at", "updated_at", "category"]
     filterset_fields = ["category"]
+
+    def perform_create(self, serializer):
+        # Every structured record gets an encyclopedia page (the page is the main editing surface).
+        _ensure_page(serializer.save(world=self.get_world()), "lore")
 
     def get_queryset(self):
         qs = LoreEntry.objects.filter(world=self.get_world()).prefetch_related("tags", "related_characters", "related_factions")
@@ -194,16 +212,15 @@ def search_world(world, query, limit=20):
     if len(query) < 2:
         return {"query": query, "results": []}
     results = []
-    for c in Character.objects.filter(world=world).filter(
-        Q(name__icontains=query) | Q(aliases_text__icontains=query) | Q(summary__icontains=query) | Q(biography__icontains=query)
-    )[:limit]:
-        results.append({"type": "character", "id": c.id, "title": c.name, "snippet": c.summary[:160]})
-    for f in Faction.objects.filter(world=world).filter(Q(name__icontains=query) | Q(description__icontains=query))[:limit]:
-        results.append({"type": "faction", "id": f.id, "title": f.name, "snippet": f.description[:160]})
-    for e in LoreEntry.objects.filter(world=world).filter(
-        Q(title__icontains=query) | Q(content__icontains=query) | Q(tags__name__icontains=query.lower())
-    ).distinct()[:limit]:
-        results.append({"type": "lore", "id": e.id, "title": e.title, "snippet": e.content[:160], "category": e.category})
+    from apps.pages.models import Page
+
+    q_lower = query.lower()
+    for page in Page.objects.filter(world=world).filter(
+        Q(title__icontains=query) | Q(aliases_text__icontains=query) | Q(plain_text__icontains=query)
+    ).order_by("title")[: limit * 2]:
+        idx = page.plain_text.lower().find(q_lower)
+        snippet = page.plain_text[max(0, idx - 50): idx + 110] if idx >= 0 else page.plain_text[:160]
+        results.append({"type": "page", "id": page.id, "title": page.title, "snippet": snippet, "page_type": page.page_type, "icon": page.icon})
     for ev in TimelineEvent.objects.filter(world=world).filter(Q(title__icontains=query) | Q(description__icontains=query))[:limit]:
         results.append({"type": "event", "id": ev.id, "title": ev.title, "snippet": ev.description[:160]})
     from apps.books.models import Chapter

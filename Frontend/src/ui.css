@@ -248,3 +248,16 @@ img.av.zoomable { cursor: zoom-in; }
   .graph-wrap { grid-template-columns: 1fr; }
   .graph-side { max-height: none; }
 }
+
+/* DOCX import: chapter preview before splitting */
+.import-preview { display: flex; flex-direction: column; gap: 8px; transition: opacity 0.15s; }
+.import-preview.stale { opacity: 0.55; }
+.import-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.import-summary .field { width: auto; padding: 5px 30px 5px 10px; }
+.import-list { margin: 0; padding: 6px 10px 6px 34px; max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--side); font-size: 14px; }
+.import-list li { padding: 4px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+.import-list li:last-child { border-bottom: 0; }
+.import-list li > * { display: block; }
+.import-title { display: flex !important; align-items: center; gap: 8px; color: var(--text-h); }
+.import-merged { color: var(--accent); font-size: 12px; }
+.import-note { font-size: 13px; }

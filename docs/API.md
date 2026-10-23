@@ -42,6 +42,15 @@
 | `GET/PUT /worlds/{id}/graph-layout/{factions|relations}/` | Збережені позиції вузлів графа `{"character:1": [x, y]}` |
 | `GET /worlds/{id}/chronology/` | Топологічний порядок подій, ребра, наявність циклу |
 | `/worlds/{id}/relationships/` | Типізовані звʼязки `{kind, source: {type, id}, target: {type, id}, …}`; фільтр `entity_type`+`entity_id`, `kind` |
+| `GET/POST /worlds/{id}/pages/` | Сторінки енциклопедії (список без тексту; `?search=` по назві, іншим назвам і тексту, `?page_type=`, `?parent=root|<id>`). `POST {title, parent?, template?, user_template?, page_type?}` |
+| `GET/PATCH/DELETE /worlds/{id}/pages/{pid}/` | Сторінка з текстом, властивостями, хлібними крихтами, дочірніми, зворотними й битими посиланнями. `PATCH {title, icon, page_type, aliases, content, base_revision}` (409 при конфлікті). `DELETE ?children=lift|delete` (без вибору — 400, якщо є підсторінки) |
+| `POST /worlds/{id}/pages/{pid}/move/` `{parent, position?}` | Переміщення в дереві (цикли відхиляються) |
+| `GET /worlds/{id}/pages/lookup/?q=` | Швидкий пошук сторінок для вставлення посилання |
+| `GET /worlds/{id}/pages/by-entity/?type=character|faction|lore&id=` | Сторінка структурованого запису (створюється за потреби) |
+| `POST /worlds/{id}/pages/{pid}/save-as-template/` · `GET /page-templates/?world=` · `DELETE /page-templates/{id}/` | Шаблони: стандартні + власні |
+| `GET/POST/DELETE /worlds/{id}/pages/{pid}/cover/` | Обкладинка сторінки |
+| `POST/PATCH/DELETE /worlds/{id}/pages/{pid}/properties/` (+ `{prop}/`, `reorder/`) | Властивості: `text`, `number`, `date {label, key}`, `checkbox`, `tags`, `page`, `pages` (лише сторінки того самого світу) |
+| `GET /books/{id}/chapters/{cid}/relevant-pages/` | Сторінки, згадані в розділі (назви й інші назви з урахуванням відмінювання) |
 | `POST /worlds/{id}/consistency/` `{book?}` | Детерміновані перевірки (синхронно), повертає завершене завдання |
 | `GET/POST /books/` · `/books/{id}/` | Книги (`world` або `new_world_name` при створенні); прогрес, слова |
 | `GET /books/{id}/export/` | Експорт книги в DOCX |
@@ -51,7 +60,8 @@
 | `POST /books/{id}/chapters/reorder/` `{order: [ids]}` | Перестановка розділів |
 | `GET /books/{id}/chapters/{cid}/versions/` · `…/versions/{vid}/` · `POST …/versions/{vid}/restore/` | Версії розділу |
 | `GET /books/{id}/chapters/{cid}/export/` | Експорт розділу в DOCX |
-| `POST /import/docx/` `file, book, mode, chapter?` | `mode`: `new_chapter`, `split_headings`, `replace_chapter` |
+| `POST /import/docx/` `file, book, mode, chapter?, split_level?` | `mode`: `new_chapter`, `split_headings`, `replace_chapter`; `split_level` 1–3 (за замовчуванням — найвищий рівень заголовка, що трапляється ≥2 разів; стиль Title не ріже; заголовки без тексту переходять у наступний розділ) |
+| `POST /import/docx/preview/` `file, split_level?` | сухий прогін: `levels`, `split_level`, `suggested_level`, `chapters[{title, word_count, merged, lead_in}]`, нічого не зберігає |
 | `/boards/` (`?book=` / `?world=`) · `POST /boards/{id}/layout/` | Дошки; збереження позицій/порядку/колонок пакетом |
 | `/boards/{id}/items/` · `/boards/{id}/connections/` | Елементи й зʼєднання дошки |
 | `GET/POST /analysis/` · `GET /analysis/{id}/` | Завдання глибокого аналізу (`kind`: `fragment`, `chapter`, `book`, `book_with_lore`) — 202 |

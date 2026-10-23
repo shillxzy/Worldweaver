@@ -5,7 +5,7 @@ export type Route =
   | { page: 'library' }
   | { page: 'profile' }
   | { page: 'settings' }
-  | { page: 'project'; bookId: number; section: Section; focus?: string }
+  | { page: 'project'; bookId: number; section: Section; focus?: string; pageId?: number }
 
 export function parseHash(): Route {
   const [path, query = ''] = location.hash.slice(1).split('?')
@@ -15,6 +15,8 @@ export function parseHash(): Route {
   const bookId = a === 'p' ? Number(id) : NaN
   if (Number.isInteger(bookId) && bookId > 0) {
     const focus = new URLSearchParams(query).get('focus') ?? undefined
+    const pageId = sec === 'page' ? Number(path.split('/')[4]) : NaN
+    if (Number.isInteger(pageId) && pageId > 0) return { page: 'project', bookId, section: 'encyclopedia', pageId }
     return { page: 'project', bookId, section: SECTIONS.find((s) => s.id === sec)?.id ?? 'overview', focus }
   }
   return { page: 'library' }
@@ -23,3 +25,4 @@ export function parseHash(): Route {
 export const navigate = (path: string) => { location.hash = path }
 export const projectPath = (id: number, section: Section = 'overview', focus?: string) =>
   `/p/${id}/${section}${focus ? `?focus=${encodeURIComponent(focus)}` : ''}`
+export const pagePath = (bookId: number, pageId: number) => `/p/${bookId}/page/${pageId}`
