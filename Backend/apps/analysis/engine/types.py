@@ -97,6 +97,24 @@ class CharacterS:
     death: TimePoint = TimePoint(None, UNKNOWN)
     world_id: Optional[int] = None
     profile: str = ""  # free text from the character's encyclopedia page (AI context)
+    # (book_id, chapter order, chapter title) of the chapter where the death/disappearance happens, if set.
+    death_chapter: Optional[tuple] = None
+
+    def dead_in(self, chapter):
+        """Is the character already dead (or missing) in ``chapter``? True / False / None (= unknown time).
+
+        Anchored by the death chapter (same book: later chapters only) or by story time vs death time.
+        An unanchored "dead" status is never applied to a chapter.
+        """
+        if self.status not in ("dead", "missing"):
+            return False
+        if self.death_chapter:
+            book_id, order, _ = self.death_chapter
+            if chapter.book_id == book_id:
+                return chapter.order > order
+        if self.death.known and chapter.story_time.known:
+            return chapter.story_time.key > self.death.key
+        return None
 
     def names(self):
         return [self.name, *[a for a in self.aliases if a]]

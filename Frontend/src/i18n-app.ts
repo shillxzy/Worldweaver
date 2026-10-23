@@ -1,5 +1,7 @@
 /** UI strings for the API-backed screens (merged into `dict` in i18n.ts). */
 export const ukApp: Record<string, string> = {
+  'info.deathChapter': 'У розділі', 'info.deathChapterNone': 'не вказано',
+  'info.deathChapterHint': 'Без розділу перевірка не знає, коли це сталося, і не вважає персонажа мертвим у жодному розділі.',
   'an.liveRunning': 'Іде перевірка книги…', 'an.liveWaiting': 'Перевірка в черзі', 'an.liveStarting': 'Підготовка: перевірки за правилами та памʼять сюжету',
   'an.liveQueued': 'Чекає, поки обробник візьме завдання.', 'an.liveElapsed': 'Минуло', 'an.liveUpdated': 'оновлено {s} с тому',
   'an.liveCancelling': 'Зупиняється…',
@@ -247,6 +249,8 @@ export const ukApp: Record<string, string> = {
 }
 
 export const enApp: Record<string, string> = {
+  'info.deathChapter': 'In chapter', 'info.deathChapterNone': 'not set',
+  'info.deathChapterHint': 'Without a chapter the check does not know when it happened and treats the character as alive in every chapter.',
   'an.liveRunning': 'Checking the book…', 'an.liveWaiting': 'Check queued', 'an.liveStarting': 'Preparing: rule-based checks and story memory',
   'an.liveQueued': 'Waiting for the worker to pick the job up.', 'an.liveElapsed': 'Elapsed', 'an.liveUpdated': 'updated {s} s ago',
   'an.liveCancelling': 'Stopping…',

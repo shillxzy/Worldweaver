@@ -82,8 +82,31 @@ class EntityIndex:
         return seen
 
 
-def world_brief(snapshot, index, text, keys):
-    """Short facts about the entities mentioned in ``text``: {"characters": [...], "events", "lore"}."""
+def status_line(c, chapter):
+    """The character's status as it holds *in this chapter*, or None when it cannot be placed in time.
+
+    A "dead" status without a death chapter or comparable dates is left out: it may describe the end of
+    the story or a sequel, and used against every chapter it turns a living character into a "plot hole".
+    """
+    if c.status in ("dead", "missing"):
+        state = c.dead_in(chapter) if chapter is not None else None
+        word = STATUS_UK[c.status]
+        where = f"у розділі «{c.death_chapter[2]}»" if c.death_chapter else c.death.text()
+        if state is True:
+            return f"Статус у цьому розділі: {word} ({where})"
+        if state is False:
+            return f"Статус у цьому розділі: живий (за енциклопедією {'загине' if c.status == 'dead' else 'зникне'} пізніше — {where})"
+        return None
+    if c.status and c.status != "unknown":
+        return f"Статус: {STATUS_UK.get(c.status, c.status)}"
+    return None
+
+
+def world_brief(snapshot, index, text, keys, chapter=None):
+    """Short facts about the entities mentioned in ``text``: {"characters": [...], "events", "lore"}.
+
+    ``chapter`` (ChapterS) places time-dependent facts — statuses and the date of death — in the story.
+    """
     context = build_context(snapshot, text, budget_chars=BRIEF_CHARS // 2, max_entries=8)
     chars = {f"c:{c.id}": c for c in snapshot.characters}
     factions = {f.id: f.name for f in snapshot.factions}
@@ -95,12 +118,13 @@ def world_brief(snapshot, index, text, keys):
         lines = [f"Імʼя: {c.name}"]
         if c.aliases:
             lines.append("Інші імена: " + ", ".join(c.aliases[:5]))
-        if c.status and c.status != "unknown":
-            lines.append(f"Статус: {STATUS_UK.get(c.status, c.status)}")
+        status = status_line(c, chapter)
+        if status:
+            lines.append(status)
         if c.birth.known:
             lines.append(f"Народження: {c.birth.text()}")
-        if c.death.known:
-            lines.append(f"Смерть: {c.death.text()}")
+        if c.death.known and chapter is not None and chapter.story_time.known:
+            lines.append(f"Смерть: {c.death.text()} (час дії розділу: {chapter.story_time.text()})")
         member_of = [factions[m.faction_id] for m in snapshot.memberships if m.character_id == c.id and m.faction_id in factions]
         if member_of:
             lines.append("Фракції: " + ", ".join(member_of[:4]))

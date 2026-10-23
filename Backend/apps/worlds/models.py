@@ -88,6 +88,9 @@ class Character(models.Model):
     death_label = models.CharField(max_length=120, blank=True)
     death_precision = models.CharField(max_length=12, choices=Precision.choices, default=Precision.UNKNOWN)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.UNKNOWN)
+    # When a death / disappearance happens in the manuscript: without it a "dead" status has no time and
+    # must not be used against chapters (it may describe the end of the story or a sequel).
+    death_chapter = models.ForeignKey("books.Chapter", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     portrait = models.ImageField(upload_to="portraits/", null=True, blank=True)
     # Card banner: an uploaded image wins over the colour; with neither, a colour is derived from the name.
     banner = models.ImageField(upload_to="banners/", null=True, blank=True)

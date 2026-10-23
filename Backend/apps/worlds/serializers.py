@@ -86,13 +86,14 @@ class CharacterSerializer(serializers.ModelSerializer):
     has_portrait = serializers.SerializerMethodField()
     has_banner = serializers.SerializerMethodField()
     page_id = serializers.SerializerMethodField()
+    death_chapter = WorldRelatedField(Chapter, world_path="book__world", required=False, allow_null=True)
 
     class Meta:
         model = Character
         fields = [
             "id", "name", "aliases", "summary", "biography", "personality", "appearance", "goals",
             "abilities", "age_text", "birth_key", "birth_label", "birth_precision", "death_key",
-            "death_label", "death_precision", "status", "facts", "notes", "has_portrait",
+            "death_label", "death_precision", "death_chapter", "status", "facts", "notes", "has_portrait",
             "has_banner", "banner_color", "page_id", "memberships", "created_at", "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]

@@ -38,12 +38,13 @@ def point(key, precision=EXACT, uncertainty=None, label=""):
 
 def load_snapshot(world, chapter_qs=None):
     snap = WorldSnapshot(id=world.id, name=world.name)
-    for c in Character.objects.filter(world=world):
+    for c in Character.objects.filter(world=world).select_related("death_chapter"):
+        dc = c.death_chapter
         snap.characters.append(CharacterS(
             id=c.id, name=c.name, aliases=list(c.aliases or []), status=c.status,
             birth=point(c.birth_key, c.birth_precision if c.birth_precision != UNKNOWN else APPROXIMATE, label=c.birth_label),
             death=point(c.death_key, c.death_precision if c.death_precision != UNKNOWN else APPROXIMATE, label=c.death_label),
-            world_id=c.world_id,
+            world_id=c.world_id, death_chapter=(dc.book_id, dc.order, dc.title) if dc else None,
         ))
     snap.factions = [FactionS(f.id, f.name, f.world_id) for f in Faction.objects.filter(world=world)]
     participants = {}

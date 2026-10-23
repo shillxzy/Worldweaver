@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useAccess } from '../access'
 import { bannerBackground, charactersApi } from '../api/characters'
+import { chaptersApi } from '../api/chapters'
 import { ApiError } from '../api/client'
 import { factionsApi } from '../api/factions'
 import { relationshipsApi } from '../api/relationships'
@@ -96,8 +97,8 @@ export function CharacterInfo({ worldId, characterId, onOpenEntity, children }: 
 
   const changeStatus = (status: CharacterStatus) => {
     // A living (or unknown) character has no date of death: clear it so checks stay consistent.
-    const clearDeath = !HAS_DEATH.includes(status) && (c.death_key !== null || c.death_label)
-    patch(clearDeath ? { status, death_key: null, death_label: '', death_precision: 'unknown' } : { status })
+    const clearDeath = !HAS_DEATH.includes(status) && (c.death_key !== null || c.death_label || c.death_chapter)
+    patch(clearDeath ? { status, death_key: null, death_label: '', death_precision: 'unknown', death_chapter: null } : { status })
   }
   const portrait = charactersApi.portraitUrl(worldId, c)
 
@@ -132,6 +133,11 @@ export function CharacterInfo({ worldId, characterId, onOpenEntity, children }: 
           <InfoRow label={c.status === 'dead' ? t('info.death') : t('info.deathIfKnown')}>
             <DateInput key={`d-${c.updated_at}`} label={c.death_label} keyValue={c.death_key}
               onSave={(v) => patch({ death_label: v.label, death_key: v.key, death_precision: v.precision })} />
+          </InfoRow>
+        )}
+        {HAS_DEATH.includes(c.status) && (
+          <InfoRow label={t('info.deathChapter')}>
+            <DeathChapter worldId={worldId} value={c.death_chapter} disabled={busy} onChange={(id) => patch({ death_chapter: id })} />
           </InfoRow>
         )}
         {children}
@@ -319,6 +325,36 @@ export function CharacterBanner({ worldId, characterId }: { worldId: number; cha
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * In which chapter the death / disappearance happens. Without it the "dead" status has no place in the
+ * story, and the plot check does not use it against chapters (it may describe the ending or a sequel).
+ */
+function DeathChapter({ worldId, value, disabled, onChange }: {
+  worldId: number; value: number | null; disabled: boolean; onChange: (id: number | null) => void
+}) {
+  const { t, books } = useApp()
+  const { edit } = useAccess()
+  const worldBooks = books.filter((b) => b.world === worldId)
+  const chapters = useAsync(async (signal) => Promise.all(worldBooks.map(async (b) => ({ book: b, chapters: await chaptersApi.list(b.id, signal) }))),
+    [worldId, worldBooks.map((b) => b.id).join(',')])
+  const title = chapters.data?.flatMap((g) => g.chapters).find((ch) => ch.id === value)?.title
+  if (!edit) return <span>{title ?? '—'}</span>
+  return (
+    <div className="date-input">
+      <select className="info-select" value={value ?? ''} disabled={disabled || !chapters.data}
+        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
+        <option value="">{t('info.deathChapterNone')}</option>
+        {chapters.data?.map((g) => (
+          <optgroup key={g.book.id} label={g.book.title}>
+            {g.chapters.map((ch) => <option key={ch.id} value={ch.id}>{ch.title}</option>)}
+          </optgroup>
+        ))}
+      </select>
+      {!value && <small className="muted">{t('info.deathChapterHint')}</small>}
     </div>
   )
 }

@@ -58,6 +58,7 @@ export type Character = {
   death_key: TimeKey
   death_label: string
   death_precision: Precision
+  death_chapter: number | null
   status: CharacterStatus
   facts: { label: string; value: string }[]
   notes: string
