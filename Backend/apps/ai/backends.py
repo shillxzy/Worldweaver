@@ -171,22 +171,30 @@ class GeminiBackend:
             raise AIResponseError("Модель повернула невалідний JSON.") from exc
 
 
-def _error_message(response):
+def _error_body(response):
+    """The "error" object of an error response, or {}. Google sometimes wraps the body in a list, and a proxy
+    may answer with HTML: an error response must never crash the job."""
     try:
-        return str(response.json().get("error", {}).get("message", ""))
+        body = response.json()
     except ValueError:
-        return ""
+        return {}
+    if isinstance(body, list):
+        body = body[0] if body else {}
+    error = body.get("error") if isinstance(body, dict) else None
+    return error if isinstance(error, dict) else {}
+
+
+def _error_message(response):
+    return str(_error_body(response).get("message", ""))
 
 
 def _retry_delay(response, default):
     """Seconds Google asks to wait (RetryInfo.retryDelay like "37s"), or ``default``."""
-    try:
-        for detail in response.json().get("error", {}).get("details", []):
-            match = RETRY_DELAY_RE.fullmatch(str(detail.get("retryDelay", "")))
-            if match:
-                return float(match.group(1)) + 1
-    except ValueError:
-        pass
+    details = _error_body(response).get("details")
+    for detail in details if isinstance(details, list) else []:
+        match = RETRY_DELAY_RE.fullmatch(str(detail.get("retryDelay", ""))) if isinstance(detail, dict) else None
+        if match:
+            return float(match.group(1)) + 1
     return default
 
 
