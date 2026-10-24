@@ -531,3 +531,11 @@ def test_unavailable_judge_stops_the_scan_without_crashing(world, book, user, sa
     job.refresh_from_db()
     assert job.status == "completed" and job.stats["ai"] == "unavailable"
     assert not job.findings.filter(source="ai").exists()
+
+
+def test_gemini_error_body_of_any_shape_does_not_crash(monkeypatch):
+    # Google sometimes wraps the error in a list; a proxy may answer with something that is not an object at all
+    wrapped = FakeResponse(429, [{"error": {"message": "slow down", "details": [{"retryDelay": "3s"}, "x"]}}])
+    odd = FakeResponse(503, ["overloaded"])
+    backend, sent = gemini(monkeypatch, wrapped, odd, answer_with('{"ok": true}'))
+    assert backend.chat_json("s", "u") == {"ok": True} and len(sent) == 3
