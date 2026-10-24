@@ -98,7 +98,7 @@ def process_story_job(job, ai_service_factory, heartbeat, persist_findings, stat
     workers = max(1, settings.AI_SCAN_PARALLEL)
     services = [service] + [ai_service_factory() for _ in range(workers - 1)]
     done, wall, failed_total = 0, 0.0, 0
-    verdicts, judged, failures = Counter(), [], Counter()
+    verdicts, judged, failures, judge_models = Counter(), [], Counter(), Counter()
     chapter_texts = {c.id: (c.title, c.text) for c in snap.chapters}
     ai_status, ai_error = "ok", ""
     for position, (chapter, chunks) in enumerate(plan, 1):
@@ -119,16 +119,19 @@ def process_story_job(job, ai_service_factory, heartbeat, persist_findings, stat
             ai_status, ai_error = "unavailable", unavailable
             break  # chapters finished so far are saved; the next run continues from here
         chapter_drafts, chapter_facts = [], []
-        for found, facts in results:
-            for draft in found:
-                # 2. Second opinion on the original paragraphs of both places (not on short quotes or a retelling).
-                verdict = judge_in_context(service, draft, chapter_texts)
+        try:
+            judged_results = [(found, facts, judge_all(service, found, chapter_texts, job, heartbeat)) for found, facts in results]
+        except AIUnavailable as error:
+            ai_status, ai_error = "unavailable", str(error)
+            break  # this chapter is not saved: the next run judges it again
+        for found, facts, chapter_verdicts in judged_results:
+            for draft, (verdict, judge_model) in zip(found, chapter_verdicts):
                 verdicts[verdict] += 1
+                judge_models[judge_model or "?"] += 1
                 if len(judged) < 400:  # research log: what was proposed and why it was kept or dropped
                     judged.append({"chapter": chapter.title, "summary": draft.summary[:200], "verdict": verdict})
                 if verdict == "contradiction":
                     chapter_drafts.append(draft)
-                heartbeat(job)
             for f in facts:
                 refs = index.keys(f"{f['who']} {f['fact']} {f['quote']}")
                 chapter_facts.append(Fact(f["who"], f["fact"], f["quote"], chapter.id, chapter.title, order, f["start"], refs, f["kind"]))
@@ -144,7 +147,7 @@ def process_story_job(job, ai_service_factory, heartbeat, persist_findings, stat
         failed_total += failed
 
     return finish(job, started, stats, ai_status=ai_status, ai_error=ai_error, scanned=len(plan), skipped=len(targets) - len(todo),
-                  pieces=done, failed_pieces=failed_total, ai_seconds=round(wall, 1), judge=dict(verdicts), judged=judged, failures=dict(failures))
+                  pieces=done, failed_pieces=failed_total, ai_seconds=round(wall, 1), judge=dict(verdicts), judge_models=dict(judge_models), judged=judged, failures=dict(failures))
 
 
 PASSAGE_CHARS = 1200  # on each side of a quote: the judge sees whole paragraphs, not a sentence
@@ -159,6 +162,16 @@ def passage(evidence, chapter_texts):
         after = text[end:end + PASSAGE_CHARS]
         return f"Розділ «{title}»: …{before}⟦{text[start:end]}⟧{after}…"
     return f"{evidence.label}: {evidence.quote}"
+
+
+def judge_all(service, drafts, chapter_texts, job, heartbeat):
+    """2. Second opinion on each candidate, on the original paragraphs of both places (not on short quotes or a
+    retelling). Returns [(verdict, model that judged)]. ``AIUnavailable`` stops the scan."""
+    out = []
+    for draft in drafts:
+        out.append((judge_in_context(service, draft, chapter_texts), service.last_judge_model))
+        heartbeat(job)
+    return out
 
 
 def judge_in_context(service, draft, chapter_texts):
