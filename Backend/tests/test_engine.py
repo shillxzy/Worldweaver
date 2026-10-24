@@ -130,3 +130,25 @@ def test_evaluation_metrics_are_computed_from_results():
     assert result["quote_verified_share"] == 1.0
     # All non-hard cases pass.
     assert all(r["fp"] == 0 and r["fn"] == 0 and r["insufficient_ok"] for r in result["cases"] if not r["case"].startswith("hard_"))
+
+
+@pytest.mark.parametrize("text, typo", [
+    ("Він згадав вашого Андресона вчора.", "Андресона"),  # two swapped letters are one slip
+    ("Того ранку пані Вальмнот мовчала.", "Вальмнот"),
+    ("Він глянув на картину Мантеньї знову.", None),  # unrelated names, not typos of «Мартіно»
+    ("Тоді заговорив Бартон тихо.", None),
+    ("Дорога вела до Марина-Бей далі.", None),
+    ("Він сказав Хартів тихо.", None),
+    ("Ти сильний, Фост.", None),  # a short form, not a slip
+])
+def test_name_typos_match_only_near_names(text, typo):
+    from apps.analysis.engine.manuscript import ManuscriptAnalyzer
+    from apps.analysis.engine.types import ChapterS
+
+    snap = WorldSnapshot(
+        characters=[CharacterS(1, "Мартіно Круз"), CharacterS(2, "Джонатан Андерсон"), CharacterS(3, "Ейра Вальмонт"),
+                    CharacterS(4, "Фостер Ванторн")],
+        chapters=[ChapterS(10, "Розділ", 1, text)],
+    )
+    found = [d.subject[-1][1] for d in ManuscriptAnalyzer(snap).name_typos()]
+    assert found == ([typo] if typo else [])
