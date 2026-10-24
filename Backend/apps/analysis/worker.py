@@ -10,6 +10,7 @@
 import logging
 import os
 import socket
+import traceback
 from datetime import timedelta
 
 from django.conf import settings
@@ -83,7 +84,9 @@ def run_one(job, ai_service_factory=AIService):
         AnalysisJob.objects.filter(pk=job.pk).update(status=Status.FAILED, finished_at=timezone.now(), error_code=code, error_message=message)
     except Exception as exc:  # noqa: BLE001 — a crashed job must never kill the worker
         # Only the exception type is stored/logged: messages may contain manuscript text.
-        logger.error("Job %s failed with %s", job.pk, type(exc).__name__)
+        # The place in our code (file, line, code) is safe to log; the exception message is not.
+        where = " <- ".join(f"{os.path.basename(f.filename)}:{f.lineno} {f.line}" for f in reversed(traceback.extract_tb(exc.__traceback__)[-4:]))
+        logger.error("Job %s failed with %s at %s", job.pk, type(exc).__name__, where)
         AnalysisJob.objects.filter(pk=job.pk).update(
             status=Status.FAILED, finished_at=timezone.now(), error_code="internal_error",
             error_message=f"Внутрішня помилка аналізу ({type(exc).__name__}).",
