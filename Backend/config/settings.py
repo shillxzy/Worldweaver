@@ -209,6 +209,8 @@ WW_MAX_VERSIONS_PER_CHAPTER = int(env("WW_MAX_VERSIONS_PER_CHAPTER", "50"))
 GEMINI_API_KEY = env("GEMINI_API_KEY", "")
 # flash-lite: fast and rarely overloaded; set GEMINI_MODEL=gemini-flash-latest for a smarter (slower) model.
 GEMINI_MODEL = env("GEMINI_MODEL", "gemini-flash-lite-latest")
+# The judge checks each candidate in context; a smarter model here costs only one short request per candidate.
+GEMINI_JUDGE_MODEL = env("GEMINI_JUDGE_MODEL", "")  # empty = GEMINI_MODEL
 GEMINI_FALLBACK_MODEL = env("GEMINI_FALLBACK_MODEL", "gemini-flash-lite-latest")  # used when the main one is overloaded
 GEMINI_THINKING = env("GEMINI_THINKING", "low")  # "low" is much faster; empty = the model's default
 GEMINI_TIMEOUT_SECONDS = int(env("GEMINI_TIMEOUT_SECONDS", "120"))

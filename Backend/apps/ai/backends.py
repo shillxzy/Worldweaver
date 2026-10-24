@@ -59,6 +59,7 @@ class GeminiBackend:
         self.timeout = timeout or settings.GEMINI_TIMEOUT_SECONDS
         self.min_interval = settings.GEMINI_MIN_INTERVAL_SECONDS if min_interval is None else min_interval
         self.thinking = settings.GEMINI_THINKING if thinking is None else thinking
+        self.last_model = ""  # the model that actually answered the last request (the fallback after overloads)
         self.session = requests.Session()
 
     # --- transport -------------------------------------------------------------------
@@ -85,6 +86,10 @@ class GeminiBackend:
             except requests.Timeout:
                 overloaded += 1
                 logger.warning("Gemini timeout (model %s, attempt %d)", model, attempt + 1)
+                if self.fallback_model and model != self.fallback_model:
+                    model = self.fallback_model  # a slow, overloaded model: use the lighter one
+                    url = f"{API_ROOT}/models/{model}:generateContent"
+                    continue
                 if overloaded >= 3:
                     raise AIUnavailable("Gemini не відповідає. Спробуйте пізніше.") from None
                 continue
@@ -92,6 +97,7 @@ class GeminiBackend:
                 raise AIUnavailable("Немає зʼєднання з Gemini (перевірте інтернет).") from exc
             status = response.status_code
             if status == 200:
+                self.last_model = model
                 return response.json()
             message = _error_message(response)
             logger.warning("Gemini HTTP %s (model %s, attempt %d)", status, model, attempt + 1)
@@ -218,3 +224,8 @@ def close_truncated_json(text):
 
 def get_backend():
     return GeminiBackend()
+
+
+def get_judge_backend():
+    """Backend for the judge: ``GEMINI_JUDGE_MODEL`` when set, otherwise the main model."""
+    return GeminiBackend(model=settings.GEMINI_JUDGE_MODEL or None)

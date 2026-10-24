@@ -23,7 +23,7 @@ from apps.analysis.engine.types import (
 
 from apps.common.text import find_quote
 
-from .backends import AIResponseError, get_backend
+from .backends import AIResponseError, get_backend, get_judge_backend
 from .schemas import (
     ENTITY_JSON_SCHEMA,
     FINDINGS_JSON_SCHEMA,
@@ -136,8 +136,11 @@ def _quote_block(label, title, text):
 
 
 class AIService:
-    def __init__(self, backend=None):
+    def __init__(self, backend=None, judge_backend=None):
         self.backend = backend or get_backend()
+        # A given backend (tests, evaluation) also judges unless another one is passed.
+        self.judge_backend = judge_backend or (get_judge_backend() if backend is None else self.backend)
+        self.last_judge_model = ""
 
     @property
     def model_name(self):
@@ -289,9 +292,11 @@ class AIService:
             + _quote_block("A", "Розділ із підозрою", passage_a) + "\n\n" + _quote_block("B", "Чому суперечить", passage_b)
         )
         try:
-            raw = self.backend.chat_json(SYSTEM_BASE, user, JUDGE_JSON_SCHEMA, max_tokens=600)
+            raw = self.judge_backend.chat_json(SYSTEM_BASE, user, JUDGE_JSON_SCHEMA, max_tokens=600)
         except AIResponseError:
             return "not_enough_info"
+        finally:
+            self.last_judge_model = getattr(self.judge_backend, "last_model", "") or getattr(self.judge_backend, "model", "")
         verdict = raw.get("verdict") if isinstance(raw, dict) else None
         if verdict not in JUDGE_VERDICTS:
             return "not_enough_info"
