@@ -491,3 +491,43 @@ def test_judge_sees_whole_paragraphs_and_drops_a_mere_mention(world, book, user,
     # the judge got the paragraph around each quote, with the quote marked, not just the short quotes
     assert "⟦заплескав обома долонями⟧" in seen[0] and "радісно" in seen[0]
     assert "⟦Каель втратив ліву руку⟧" in seen[0] and "У битві біля мосту" in seen[0]
+
+
+def test_judge_can_use_its_own_model(world, book, user, saga):
+    judge = FakeBackend(lambda prompt: {"verdict": "explained", "reason": "Протез."})
+    judge.model = "smart-judge"
+    reader = FakeBackend(story_answer)
+    AnalysisJob.objects.create(user=user, world=world, book=book, kind="book")
+    job = claim_next_job("w")
+    run_one(job, lambda: AIService(reader, judge_backend=judge))
+    job.refresh_from_db()
+    # the reader never got a judge prompt; the job records which model judged
+    assert judge.calls and not any("Перевір одну підозру" in c for c in reader.calls)
+    assert job.stats["judge"] == {"explained": 1} and job.stats["judge_models"] == {"smart-judge": 1}
+
+
+def test_gemini_backend_falls_back_after_a_timeout(monkeypatch):
+    backend, sent = gemini(monkeypatch, answer_with('{"ok": true}'))
+    real_post = requests.Session.post
+    calls = []
+
+    def slow_then_ok(self, url, **kwargs):
+        calls.append(url)
+        if len(calls) == 1:
+            raise requests.Timeout()
+        return real_post(self, url, **kwargs)
+
+    monkeypatch.setattr(requests.Session, "post", slow_then_ok)
+    assert backend.chat_json("s", "u") == {"ok": True}
+    assert calls[0].endswith("/models/main:generateContent") and calls[1].endswith("/models/lite:generateContent")
+    assert backend.last_model == "lite"
+
+
+def test_unavailable_judge_stops_the_scan_without_crashing(world, book, user, saga):
+    judge = FakeBackend(error=AIUnavailable("Gemini не відповідає."))
+    AnalysisJob.objects.create(user=user, world=world, book=book, kind="book")
+    job = claim_next_job("w")
+    run_one(job, lambda: AIService(FakeBackend(story_answer), judge_backend=judge))
+    job.refresh_from_db()
+    assert job.status == "completed" and job.stats["ai"] == "unavailable"
+    assert not job.findings.filter(source="ai").exists()
