@@ -7,7 +7,7 @@ These rules connect the manuscript with world facts:
                                 acting, with no flashback / memory / resurrection marker;
 * ``age_mismatch``            – an age stated in the text contradicts birth date + chapter time;
 * ``age_inconsistent``        – ages stated in two chapters contradict the chapters' time gap;
-* ``possible_name_typo``      – a capitalised word one or two letters away from a known name.
+* ``possible_name_typo``      – a capitalised word one letter (two in long names) away from a known name.
 
 Every quote is taken verbatim from the chapter text and verified with ``find_quote``;
 results are "potential" unless the facts are exact and formal.
@@ -256,7 +256,11 @@ class ManuscriptAnalyzer:
         return out
 
     def name_typos(self, chapters=None):
-        """Capitalised words very close to a known name that are not a known form."""
+        """Capitalised words very close to a known name that are not a known form.
+
+        A typo keeps the first letter and the length (±1); two swapped letters count as one slip. Short names
+        allow one slip, long ones two — otherwise unrelated names match («Бартон», «Марина» → «Мартін»).
+        """
         known = []
         for c in self.snap.characters:
             for name in c.names():
@@ -277,8 +281,8 @@ class ManuscriptAnalyzer:
                 for c, part, p_stem in known:
                     if w_stem == p_stem or word.lower().startswith(p_stem):
                         break
-                    limit = 1 if len(p_stem) <= 5 else 2
-                    if abs(len(w_stem) - len(p_stem)) <= limit and _levenshtein(w_stem, p_stem, limit) <= limit:
+                    limit = 1 if len(p_stem) <= 6 else 2
+                    if w_stem[0] == p_stem[0] and abs(len(w_stem) - len(p_stem)) <= 1 and _distance(w_stem, p_stem, limit) <= limit:
                         seen.add(word)
                         _, _, sentence = sentence_at(chapter.text, m.start(), self.spans(chapter))
                         ev = self._evidence(chapter, sentence)
@@ -297,17 +301,22 @@ class ManuscriptAnalyzer:
         return self.dead_character_active() + self.death_then_alive() + self.ages() + self.name_typos()
 
 
-def _levenshtein(a, b, limit):
+def _distance(a, b, limit):
+    """Edit distance where two swapped neighbouring letters are one edit («Андресон» → «Андерсон»);
+    returns ``limit + 1`` as soon as it is clearly over the limit."""
     if a == b:
         return 0
-    previous = list(range(len(b) + 1))
+    before, previous = None, list(range(len(b) + 1))
     for i, ca in enumerate(a, 1):
         current = [i]
         for j, cb in enumerate(b, 1):
-            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (ca != cb)))
+            cost = min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (ca != cb))
+            if i > 1 and j > 1 and ca == b[j - 2] and a[i - 2] == cb:
+                cost = min(cost, before[j - 2] + 1)
+            current.append(cost)
         if min(current) > limit:
             return limit + 1
-        previous = current
+        before, previous = previous, current
     return previous[-1]
 
 
