@@ -28,6 +28,7 @@ router.register(rf"worlds/{ID.format('world_pk')}/pages/{ID.format('page_pk')}/p
 router.register(rf"worlds/{ID.format('world_pk')}/comments", collab.CommentViewSet, basename="comment")
 router.register("books", books.BookViewSet, basename="book")
 router.register(rf"books/{ID.format('book_pk')}/chapters", books.ChapterViewSet, basename="chapter")
+router.register(rf"books/{ID.format('book_pk')}/arcs", books.ArcViewSet, basename="arc")
 router.register("boards", boards.BoardViewSet, basename="board")
 router.register(rf"boards/{ID.format('board_pk')}/items", boards.BoardItemViewSet, basename="board-item")
 router.register(rf"boards/{ID.format('board_pk')}/connections", boards.BoardConnectionViewSet, basename="board-connection")

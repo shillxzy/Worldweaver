@@ -10,6 +10,7 @@ from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -20,8 +21,9 @@ from apps.common.scoping import EDIT, MANAGE, VIEW, accessible_worlds, annotate_
 
 from .docx_io import export_docx, parse_docx, blocks_to_document, choose_split_level, heading_levels, plan_chapters
 from .documents import document_stats
-from .models import Book, Chapter, ChapterVersion
+from .models import Arc, Book, Chapter, ChapterVersion
 from .serializers import (
+    ArcSerializer,
     BookSerializer,
     ChapterListSerializer,
     ChapterSerializer,
@@ -225,6 +227,45 @@ class ChapterViewSet(viewsets.ModelViewSet):
             chapter.updated_by = request.user
             chapter.save()
         return Response(ChapterSerializer(chapter).data)
+
+
+class ArcViewSet(viewsets.ModelViewSet):
+    """Arcs (parts) of a book. Everyone in the world sees them; editors create and change them."""
+
+    queryset = Arc.objects.none()  # schema introspection only
+    serializer_class = ArcSerializer
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+    get_book = ChapterViewSet.get_book
+    action_roles = {}
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        self.get_book()
+
+    def get_queryset(self):
+        return Arc.objects.filter(book=self.get_book())
+
+    def perform_create(self, serializer):
+        self._save(serializer, book=self.get_book())
+
+    def perform_update(self, serializer):
+        self._save(serializer)
+
+    @transaction.atomic
+    def _save(self, serializer, **extra):
+        first = serializer.validated_data.pop("first_chapter", None)
+        last = serializer.validated_data.pop("last_chapter", None)
+        arc = serializer.save(**extra)
+        if first is None:
+            return
+        chapters = list(Chapter.objects.select_for_update().filter(book=arc.book).order_by("order", "id"))
+        ids = [c.id for c in chapters]
+        if first not in ids or last not in ids:
+            raise ValidationError({"first_chapter": "Розділ не належить цій книзі."})
+        start, end = sorted((ids.index(first), ids.index(last)))
+        inside = ids[start:end + 1]
+        Chapter.objects.filter(arc=arc).exclude(id__in=inside).update(arc=None)
+        Chapter.objects.filter(id__in=inside).update(arc=arc)
 
 
 def maybe_snapshot(chapter, reason, force=False):

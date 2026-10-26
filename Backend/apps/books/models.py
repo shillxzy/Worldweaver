@@ -43,6 +43,20 @@ class Book(models.Model):
         return self.title
 
 
+class Arc(models.Model):
+    """A part of a book (a story arc): a named run of chapters. Chapters point to their arc."""
+
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="arcs")
+    title = models.CharField(max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return self.title
+
+
 class Chapter(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Чернетка"
@@ -50,6 +64,7 @@ class Chapter(models.Model):
         DONE = "done", "Готово"
 
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="chapters")
+    arc = models.ForeignKey(Arc, on_delete=models.SET_NULL, null=True, blank=True, related_name="chapters")
     title = models.CharField(max_length=200)
     order = models.PositiveIntegerField(default=0)
     content = models.JSONField(default=empty_document)

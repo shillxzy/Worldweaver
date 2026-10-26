@@ -6,7 +6,7 @@ from apps.common.users import display_name
 from apps.worlds.models import World
 
 from .documents import document_stats, validate_document
-from .models import Book, Chapter, ChapterVersion
+from .models import Arc, Book, Chapter, ChapterVersion
 
 
 class OwnedWorldField(serializers.PrimaryKeyRelatedField):
@@ -73,13 +73,29 @@ class BookSerializer(serializers.ModelSerializer):
         return super().update(instance, validated)
 
 
+class ArcSerializer(serializers.ModelSerializer):
+    # A range of chapters (in reading order) to put into the arc; omitted = chapters stay as they are.
+    first_chapter = serializers.IntegerField(write_only=True, required=False, min_value=1)
+    last_chapter = serializers.IntegerField(write_only=True, required=False, min_value=1)
+
+    class Meta:
+        model = Arc
+        fields = ["id", "book", "title", "first_chapter", "last_chapter", "created_at"]
+        read_only_fields = ["book", "created_at"]
+
+    def validate(self, attrs):
+        if ("first_chapter" in attrs) != ("last_chapter" in attrs):
+            raise serializers.ValidationError("Вкажіть і перший, і останній розділ арки.")
+        return attrs
+
+
 class ChapterListSerializer(serializers.ModelSerializer):
     updated_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Chapter
         fields = [
-            "id", "book", "title", "order", "word_count", "status", "revision", "story_time_key",
+            "id", "book", "arc", "title", "order", "word_count", "status", "revision", "story_time_key",
             "story_time_label", "is_flashback", "narrator_unreliable", "is_public", "updated_by_name",
             "created_at", "updated_at",
         ]
@@ -87,6 +103,14 @@ class ChapterListSerializer(serializers.ModelSerializer):
 
     def get_updated_by_name(self, obj) -> str:
         return display_name(obj.updated_by)
+
+    def get_fields(self):
+        fields = super().get_fields()
+        view = self.context.get("view")
+        # Only arcs of this chapter's book can be chosen: others look like they do not exist.
+        has_book = view is not None and hasattr(view, "get_book") and "book_pk" in getattr(view, "kwargs", {})  # not in schema generation
+        fields["arc"].queryset = Arc.objects.filter(book=view.get_book()) if has_book else Arc.objects.none()
+        return fields
 
 
 class ChapterSerializer(ChapterListSerializer):
