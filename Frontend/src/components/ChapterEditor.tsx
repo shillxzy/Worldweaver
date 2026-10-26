@@ -53,7 +53,7 @@ export default function ChapterEditor({ bookId, worldId, chapter: initial, onMet
   const [issues, setIssues] = useState<QuickIssue[]>([])
   const [spell, setSpell] = useState<{ spelling: SpellIssue[]; style: StyleIssue[] } | null>(null)
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({})
-  const [panel, setPanel] = useState<'hints' | 'spell' | 'meta' | null>('hints')
+  const [panel, setPanel] = useState<'hints' | 'spell' | null>('hints')
   const [versions, setVersions] = useState<ChapterVersion[] | null>(null)
   const [preview, setPreview] = useState<{ id: number; text: string } | null>(null)
   const { busy, run } = useBusy()
@@ -241,7 +241,7 @@ export default function ChapterEditor({ bookId, worldId, chapter: initial, onMet
     } catch (err) { notify(errorText(err), 'error') }
   })
 
-  const saveMeta = (patch: { title?: string; status?: ChapterStatus; story_time_key?: string | null; story_time_label?: string; is_flashback?: boolean; narrator_unreliable?: boolean }) =>
+  const saveMeta = (patch: { title?: string; status?: ChapterStatus }) =>
     void run(async () => {
       try {
         const saved = await chaptersApi.update(bookId, chapter.id, patch)
@@ -279,6 +279,10 @@ export default function ChapterEditor({ bookId, worldId, chapter: initial, onMet
         <div className="editor-bar">
           <input className="chapter-title" value={chapter.title} onChange={(e) => setChapter({ ...chapter, title: e.target.value })}
             onBlur={(e) => e.target.value.trim() && e.target.value !== initial.title && saveMeta({ title: e.target.value.trim() })} />
+          <select className="field chapter-status" value={chapter.status} aria-label={t('ed.status')} title={t('ed.status')}
+            onChange={(e) => saveMeta({ status: e.target.value as ChapterStatus })}>
+            {(['draft', 'revision', 'done'] as ChapterStatus[]).map((s) => <option key={s} value={s}>{t('chStatus.' + s)}</option>)}
+          </select>
           <span className={'save-state ' + state}>{statusText[state]}</span>
           <span className="muted">{words} {t('ov.words')}</span>
         </div>
@@ -322,7 +326,6 @@ export default function ChapterEditor({ bookId, worldId, chapter: initial, onMet
         <div className="seg small">
           <button className={panel === 'hints' ? 'on' : ''} onClick={() => setPanel('hints')}>{t('ed.hints')}{issues.length ? ` (${issues.length})` : ''}</button>
           <button className={panel === 'spell' ? 'on' : ''} onClick={() => (spell ? setPanel('spell') : checkSpelling())}>{t('ed.spelling')}</button>
-          <button className={panel === 'meta' ? 'on' : ''} onClick={() => setPanel('meta')}>{t('ed.meta')}</button>
         </div>
 
         {panel === 'hints' && (
@@ -367,24 +370,6 @@ export default function ChapterEditor({ bookId, worldId, chapter: initial, onMet
           </div>
         )}
 
-        {panel === 'meta' && (
-          <div className="form">
-            <label>{t('ed.status')}
-              <select className="field" value={chapter.status} onChange={(e) => saveMeta({ status: e.target.value as ChapterStatus })}>
-                {(['draft', 'revision', 'done'] as ChapterStatus[]).map((s) => <option key={s} value={s}>{t('chStatus.' + s)}</option>)}
-              </select>
-            </label>
-            <label>{t('ed.storyTime')}
-              <input className="field" inputMode="decimal" placeholder={t('time.key')} defaultValue={chapter.story_time_key === null ? '' : String(Number(chapter.story_time_key))}
-                onBlur={(e) => saveMeta({ story_time_key: e.target.value.trim().replace(',', '.') || null })} />
-              <input className="field" placeholder={t('time.label')} defaultValue={chapter.story_time_label}
-                onBlur={(e) => e.target.value !== chapter.story_time_label && saveMeta({ story_time_label: e.target.value })} />
-            </label>
-            <small className="muted">{t('ed.storyTimeHint')}</small>
-            <label className="check"><input type="checkbox" checked={chapter.is_flashback} onChange={(e) => saveMeta({ is_flashback: e.target.checked })} />{t('ed.flashback')}</label>
-            <label className="check"><input type="checkbox" checked={chapter.narrator_unreliable} onChange={(e) => saveMeta({ narrator_unreliable: e.target.checked })} />{t('ed.unreliable')}</label>
-          </div>
-        )}
       </aside>
 
       {versions && (
