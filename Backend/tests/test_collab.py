@@ -215,3 +215,24 @@ def test_shared_world_in_search_and_analysis(team, world, chapter):
     assert team["viewer"].get("/api/v1/search/", {"q": "Туман"}).json()["results"]
     assert team["viewer"].post(w(world, "consistency/"), {}, format="json").status_code == 403
     assert team["editor"].post(w(world, "consistency/"), {}, format="json").status_code == 201
+
+
+def test_everyone_sees_arcs_but_only_editors_change_them(team, book, chapter):
+    arcs = f"/api/v1/books/{book.id}/arcs/"
+    body = {"title": "Арка", "first_chapter": chapter.id, "last_chapter": chapter.id}
+    for role in ("viewer", "commenter"):
+        assert team[role].get(arcs).status_code == 200
+        assert team[role].post(arcs, body, format="json").status_code == 403
+    assert team["editor"].post(arcs, body, format="json").status_code == 201
+    assert team["outsider"].get(arcs).status_code == 404
+
+
+def test_comment_remembers_which_occurrence_of_the_quote_was_selected(team, world, chapter):
+    url = w(world, "comments/")
+    made = team["commenter"].post(url, {"chapter": chapter.id, "body": "Друге «Туман»", "quote": "Туман", "quote_occurrence": 1}, format="json").json()
+    assert made["quote"] == "Туман" and made["quote_occurrence"] == 1
+    # without a quote (or in a reply) there is nothing to point at
+    plain = team["commenter"].post(url, {"chapter": chapter.id, "body": "Загалом", "quote_occurrence": 3}, format="json").json()
+    reply = team["editor"].post(url, {"parent": made["id"], "body": "Так", "quote_occurrence": 2}, format="json").json()
+    assert plain["quote_occurrence"] == 0 and reply["quote_occurrence"] == 0
+    assert team["commenter"].post(url, {"chapter": chapter.id, "body": "x", "quote": "Туман", "quote_occurrence": -1}, format="json").status_code == 400

@@ -207,3 +207,34 @@ def test_docx_export_roundtrip(client, book, chapter):
 def test_manuscript_endpoint(client, book, chapter):
     data = client.get(f"/api/v1/books/{book.id}/manuscript/").json()
     assert data["chapters"][0]["text"].startswith("Туман")
+
+
+def test_arcs_group_a_range_of_chapters(client, book, other_client, user):
+    ids = [client.post(chapters_url(book), {"title": f"Розділ {i}"}, format="json").json()["id"] for i in range(1, 6)]
+    arcs = f"/api/v1/books/{book.id}/arcs/"
+    r = client.post(arcs, {"title": "Частина перша", "first_chapter": ids[3], "last_chapter": ids[1]}, format="json")
+    assert r.status_code == 201
+    first = r.json()["id"]
+    by_id = {c["id"]: c["arc"] for c in client.get(chapters_url(book)).json()["results"]}
+    assert [by_id[i] for i in ids] == [None, first, first, first, None]  # the range in reading order, either way round
+
+    # a new range moves chapters out of the old one; another arc takes what it covers
+    client.patch(f"{arcs}{first}/", {"first_chapter": ids[0], "last_chapter": ids[1]}, format="json")
+    second = client.post(arcs, {"title": "Частина друга", "first_chapter": ids[1], "last_chapter": ids[4]}, format="json").json()["id"]
+    by_id = {c["id"]: c["arc"] for c in client.get(chapters_url(book)).json()["results"]}
+    assert [by_id[i] for i in ids] == [first, second, second, second, second]
+
+    # a chapter can be put into an arc directly; deleting an arc keeps its chapters
+    assert client.patch(f"{chapters_url(book)}{ids[0]}/", {"arc": second}, format="json").json()["arc"] == second
+    assert client.delete(f"{arcs}{second}/").status_code == 204
+    assert Chapter.objects.filter(book=book, arc__isnull=False).count() == 0 and Chapter.objects.filter(book=book).count() == 5
+
+    # only both ends together, only this book's chapters, and others cannot see or use the arcs
+    assert client.post(arcs, {"title": "x", "first_chapter": ids[0]}, format="json").status_code == 400
+    other_book = Book.objects.create(world=book.world, title="Інша")
+    alien = Chapter.objects.create(book=other_book, title="Чужий")
+    assert client.post(arcs, {"title": "x", "first_chapter": alien.id, "last_chapter": ids[0]}, format="json").status_code == 400
+    assert not book.arcs.filter(title="x").exists()
+    foreign_arc = other_book.arcs.create(title="Чужа арка")
+    assert client.patch(f"{chapters_url(book)}{ids[0]}/", {"arc": foreign_arc.id}, format="json").status_code == 400
+    assert other_client.get(arcs).status_code == 404
