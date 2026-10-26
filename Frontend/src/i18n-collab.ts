@@ -40,7 +40,7 @@ export const ukCollab: Record<string, string> = {
   'join.signInFirst': 'Увійдіть або зареєструйтеся, щоб прийняти запрошення до спільного проєкту.',
   'lib.sharedBy': 'Спільна · {name}',
 
-  'cm.title': 'Коментарі', 'cm.add': 'Коментувати', 'cm.send': 'Надіслати', 'cm.reply': 'Відповісти', 'cm.resolve': 'Закрити обговорення',
+  'cm.title': 'Коментарі', 'cm.showInText': 'Показати в тексті', 'cm.onSelection': 'Коментувати', 'cm.add': 'Коментувати', 'cm.send': 'Надіслати', 'cm.reply': 'Відповісти', 'cm.resolve': 'Закрити обговорення',
   'cm.reopen': 'Відкрити знову', 'cm.resolvedBy': 'закрито ({name})', 'cm.empty': 'Відкритих коментарів немає.',
   'cm.placeholder': 'Ваш коментар…', 'cm.aboutSelection': 'Коментар до виділеного фрагмента…', 'cm.noQuote': 'без цитати',
   'cm.selectHint': 'Виділіть фрагмент тексту, щоб прив’язати коментар до нього. Ctrl+Enter — надіслати.',
@@ -94,7 +94,7 @@ export const enCollab: Record<string, string> = {
   'join.signInFirst': 'Sign in or create an account to accept the invitation to a shared project.',
   'lib.sharedBy': 'Shared · {name}',
 
-  'cm.title': 'Comments', 'cm.add': 'Comment', 'cm.send': 'Send', 'cm.reply': 'Reply', 'cm.resolve': 'Resolve',
+  'cm.title': 'Comments', 'cm.showInText': 'Show in the text', 'cm.onSelection': 'Comment', 'cm.add': 'Comment', 'cm.send': 'Send', 'cm.reply': 'Reply', 'cm.resolve': 'Resolve',
   'cm.reopen': 'Reopen', 'cm.resolvedBy': 'resolved ({name})', 'cm.empty': 'No open comments.',
   'cm.placeholder': 'Your comment…', 'cm.aboutSelection': 'Comment on the selected passage…', 'cm.noQuote': 'no quote',
   'cm.selectHint': 'Select a passage to attach the comment to it. Ctrl+Enter sends.',

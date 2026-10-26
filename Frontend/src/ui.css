@@ -126,6 +126,7 @@ button.ev:hover { border-color: var(--accent); }
 .editor-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .editor-bar { display: flex; align-items: center; gap: 12px; }
 .chapter-title { flex: 1; min-width: 0; background: none; border: 0; outline: none; font: 700 24px var(--serif); color: var(--text-h); }
+.chapter-status { width: auto; flex: none; padding: 4px 8px; font-size: 13px; }
 .save-state { font-size: 12px; padding: 2px 8px; border-radius: 20px; background: var(--hover); white-space: nowrap; }
 .save-state.saved { color: #6fd1a0; }
 .save-state.error, .save-state.conflict { color: #ff7b7f; }
@@ -285,3 +286,23 @@ img.av.zoomable { cursor: zoom-in; }
 @keyframes live-slide { 0% { left: -35%; } 100% { left: 100%; } }
 @keyframes live-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.7); } }
 @media (prefers-reduced-motion: reduce) { .live-bar i, .live-dot { animation: none; } .live-bar.indeterminate i { left: 0; width: 100%; opacity: 0.5; } }
+
+/* Arcs: a heading over each run of chapters of one arc. */
+.arc-head { display: flex; align-items: center; gap: 4px; margin-top: 8px; }
+.arc-head:first-child { margin-top: 0; }
+.arc-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; background: none; border: 0; padding: 4px 6px; text-align: left; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.arc-name span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arc-name small { color: var(--text); text-transform: none; letter-spacing: 0; font-weight: 400; }
+.arc-caret { width: 10px; flex: none; }
+.chapter-item.in-arc { margin-left: 10px; border-left: 1px solid var(--border); border-radius: 0 8px 8px 0; }
+.chapter-adds { display: flex; gap: 6px; flex-wrap: wrap; }
+.reader-arc { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 4px; }
+
+/* Comments on passages: highlighted without changing the text (CSS Custom Highlight API). */
+::highlight(ww-comment) { background-color: rgba(224, 179, 106, 0.22); }
+::highlight(ww-comment-active) { background-color: rgba(224, 179, 106, 0.55); }
+.selection-comment { position: fixed; z-index: 45; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--accent); background: var(--card); color: var(--text-h); font-size: 13px; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7); animation: fade 0.12s; }
+.selection-comment:hover { background: var(--accent-bg); }
+.comment-quote.linked { cursor: pointer; }
+.comment-quote.linked:hover { border-color: var(--accent); }
+.comment-thread.focused { outline: 1px solid var(--accent); }

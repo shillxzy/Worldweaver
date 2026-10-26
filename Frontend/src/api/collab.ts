@@ -26,7 +26,7 @@ export const collabApi = {
 
   comments: (worldId: number, target: CommentTarget, signal?: AbortSignal) =>
     api.get<Comment[]>(`${w(worldId)}/comments/`, { query: target, signal }),
-  addComment: (worldId: number, data: (CommentTarget | { parent: number }) & { body: string; quote?: string }) =>
+  addComment: (worldId: number, data: (CommentTarget | { parent: number }) & { body: string; quote?: string; quote_occurrence?: number }) =>
     api.post<Comment>(`${w(worldId)}/comments/`, data),
   updateComment: (worldId: number, id: number, data: { body?: string; resolved?: boolean }) =>
     api.patch<Comment>(`${w(worldId)}/comments/${id}/`, data),

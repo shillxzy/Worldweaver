@@ -1,5 +1,5 @@
 import { api, download, listAll } from './client'
-import type { Chapter, ChapterStatus, ChapterSummary, ChapterVersion, ChapterVersionDetail, DocNode } from './types'
+import type { Arc, Chapter, ChapterStatus, ChapterSummary, ChapterVersion, ChapterVersionDetail, DocNode } from './types'
 
 export type ChapterInput = {
   title?: string
@@ -7,10 +7,19 @@ export type ChapterInput = {
   content?: DocNode
   base_revision?: number
   snapshot?: boolean
-  story_time_key?: string | null
-  story_time_label?: string
-  is_flashback?: boolean
-  narrator_unreliable?: boolean
+  arc?: number | null
+}
+
+/** ``first_chapter`` … ``last_chapter`` (either order) become the arc's chapters. */
+export type ArcInput = { title?: string; first_chapter?: number; last_chapter?: number }
+
+const arcBase = (bookId: number) => `/books/${bookId}/arcs/`
+
+export const arcsApi = {
+  list: (bookId: number, signal?: AbortSignal) => listAll<Arc>(arcBase(bookId), {}, signal),
+  create: (bookId: number, data: ArcInput) => api.post<Arc>(arcBase(bookId), data),
+  update: (bookId: number, id: number, data: ArcInput) => api.patch<Arc>(`${arcBase(bookId)}${id}/`, data),
+  remove: (bookId: number, id: number) => api.del(`${arcBase(bookId)}${id}/`),
 }
 
 export type ImportMode = 'new_chapter' | 'split_headings' | 'replace_chapter'

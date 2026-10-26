@@ -1,26 +1,35 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { collabApi } from '../api/collab'
 import type { CommentTarget } from '../api/collab'
 import type { Comment } from '../api/types'
 import { errorText, useAsync, useBusy } from '../hooks'
+import type { AsyncState } from '../hooks'
 import { useApp } from '../settings-context'
 import { MemberAvatar } from './ShareDialog'
 import { ErrorState, Loading } from './Ui'
 
 /**
  * Discussion next to a chapter or a page. Comments never change the text; a thread can be
- * closed by its author or an editor. ``quote`` is the text selected in the editor (optional).
+ * closed by its author or an editor. ``quote`` is the text selected in the editor (optional) and
+ * ``occurrence`` says which of its occurrences it was, so the passage can be highlighted later.
+ * ``state`` lets the page own the list (it highlights the passages); ``focusId`` is the thread to show.
  */
-export default function CommentsPanel({ worldId, target, quote, onQuoteUsed, onClose, onCount }: {
-  worldId: number; target: CommentTarget; quote?: string; onQuoteUsed?: () => void; onClose: () => void; onCount?: (open: number) => void
+export default function CommentsPanel({ worldId, target, quote, occurrence = 0, state, focusId, onFocus, onQuoteUsed, onClose, onCount }: {
+  worldId: number; target: CommentTarget; quote?: string; occurrence?: number; state?: AsyncState<Comment[]>
+  focusId?: number | null; onFocus?: (id: number) => void
+  onQuoteUsed?: () => void; onClose: () => void; onCount?: (open: number) => void
 }) {
   const { t, notify } = useApp()
   const key = 'chapter' in target ? `c${target.chapter}` : `p${target.page}`
-  const comments = useAsync<Comment[]>(async (signal) => {
+  const own = useAsync<Comment[]>(async (signal) => {
+    if (state) return []
     const list = await collabApi.comments(worldId, target, signal)
     onCount?.(list.filter((c) => !c.parent && !c.resolved).length)
     return list
-  }, [worldId, key])
+  }, [worldId, key, !!state])
+  const comments = state ?? own
+  const input = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => { if (quote) input.current?.focus() }, [quote])
   const { busy, run } = useBusy()
   const [body, setBody] = useState('')
   const [dismissed, setDismissed] = useState('')
@@ -33,7 +42,7 @@ export default function CommentsPanel({ worldId, target, quote, onQuoteUsed, onC
   const add = () => {
     if (!body.trim()) return
     act(async () => {
-      await collabApi.addComment(worldId, { ...target, body: body.trim(), quote: shownQuote.slice(0, 500) })
+      await collabApi.addComment(worldId, { ...target, body: body.trim(), quote: shownQuote.slice(0, 500), quote_occurrence: shownQuote ? occurrence : 0 })
       setBody('')
       onQuoteUsed?.()
     })
@@ -56,7 +65,7 @@ export default function CommentsPanel({ worldId, target, quote, onQuoteUsed, onC
             <button className="link" onClick={() => setDismissed(shownQuote)}>{t('cm.noQuote')}</button>
           </blockquote>
         )}
-        <textarea className="field" rows={3} maxLength={4000} placeholder={shownQuote ? t('cm.aboutSelection') : t('cm.placeholder')}
+        <textarea ref={input} className="field" rows={3} maxLength={4000} placeholder={shownQuote ? t('cm.aboutSelection') : t('cm.placeholder')}
           value={body} onChange={(e) => setBody(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) add() }} />
         <button className="btn small" disabled={busy || !body.trim()} onClick={add}>{t('cm.add')}</button>
@@ -67,7 +76,8 @@ export default function CommentsPanel({ worldId, target, quote, onQuoteUsed, onC
         <div className="comment-threads">
           {threads.length === 0 && <p className="muted">{t('cm.empty')}</p>}
           {threads.map((c) => (
-            <Thread key={c.id} worldId={worldId} comment={c} replies={all.filter((r) => r.parent === c.id)} busy={busy} act={act} />
+            <Thread key={c.id} worldId={worldId} comment={c} replies={all.filter((r) => r.parent === c.id)} busy={busy} act={act}
+              focused={c.id === focusId} onFocus={onFocus} />
           ))}
           {resolvedCount > 0 && (
             <button className="link" onClick={() => setShowResolved((v) => !v)}>
@@ -80,15 +90,22 @@ export default function CommentsPanel({ worldId, target, quote, onQuoteUsed, onC
   )
 }
 
-function Thread({ worldId, comment, replies, busy, act }: {
+function Thread({ worldId, comment, replies, busy, act, focused, onFocus }: {
   worldId: number; comment: Comment; replies: Comment[]; busy: boolean; act: (fn: () => Promise<unknown>) => void
+  focused?: boolean; onFocus?: (id: number) => void
 }) {
   const { t } = useApp()
   const [replying, setReplying] = useState(false)
   const [reply, setReply] = useState('')
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (focused) box.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }, [focused])
   return (
-    <div className={'comment-thread' + (comment.resolved ? ' resolved' : '')}>
-      {comment.quote && <blockquote className="comment-quote">{comment.quote}</blockquote>}
+    <div ref={box} className={'comment-thread' + (comment.resolved ? ' resolved' : '') + (focused ? ' focused' : '')}>
+      {comment.quote && (
+        onFocus && !comment.resolved
+          ? <blockquote className="comment-quote linked" onClick={() => onFocus(comment.id)} title={t('cm.showInText')}>{comment.quote}</blockquote>
+          : <blockquote className="comment-quote">{comment.quote}</blockquote>
+      )}
       <CommentItem worldId={worldId} comment={comment} busy={busy} act={act} />
       {replies.map((r) => <CommentItem key={r.id} worldId={worldId} comment={r} busy={busy} act={act} reply />)}
       {comment.resolved && <small className="muted">✓ {t('cm.resolvedBy').replace('{name}', comment.resolved_by_name)}</small>}

@@ -136,8 +136,11 @@ export type Book = {
 
 export type ChapterStatus = 'draft' | 'revision' | 'done'
 
+/** A part of a book: a named run of chapters (chapters point to it). */
+export type Arc = { id: number; book: number; title: string; created_at: string }
+
 export type ChapterSummary = {
-  id: number; book: number; title: string; order: number; word_count: number; status: ChapterStatus
+  id: number; book: number; arc: number | null; title: string; order: number; word_count: number; status: ChapterStatus
   revision: number; story_time_key: TimeKey; story_time_label: string; is_flashback: boolean
   narrator_unreliable: boolean; is_public: boolean; updated_by_name: string; created_at: string; updated_at: string
 }
@@ -268,7 +271,7 @@ export type InvitePreview = {
 
 export type Comment = {
   id: number; chapter: number | null; page: number | null; parent: number | null; author: Person | null
-  body: string; quote: string; resolved: boolean; resolved_by_name: string
+  body: string; quote: string; quote_occurrence: number; resolved: boolean; resolved_by_name: string
   can_edit: boolean; can_resolve: boolean; can_delete: boolean; created_at: string; updated_at: string
 }
 
