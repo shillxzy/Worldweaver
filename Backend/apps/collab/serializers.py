@@ -74,10 +74,10 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = [
-            "id", "chapter", "page", "parent", "author", "body", "quote", "resolved", "resolved_by_name",
+            "id", "chapter", "page", "parent", "author", "body", "quote", "quote_occurrence", "resolved", "resolved_by_name",
             "can_edit", "can_resolve", "can_delete", "created_at", "updated_at",
         ]
-        read_only_fields = ["chapter", "page", "parent", "resolved", "created_at", "updated_at"]
+        read_only_fields = ["chapter", "page", "parent", "quote_occurrence", "resolved", "created_at", "updated_at"]
 
     def get_author(self, obj):
         return person(obj.author)
@@ -104,6 +104,7 @@ class CommentCreateSerializer(serializers.Serializer):
     parent = serializers.IntegerField(min_value=1, required=False)
     body = serializers.CharField(max_length=4000)
     quote = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    quote_occurrence = serializers.IntegerField(min_value=0, max_value=100000, required=False, default=0)
 
     def validate_body(self, value):
         value = value.strip()

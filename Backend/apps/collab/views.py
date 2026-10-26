@@ -273,6 +273,7 @@ class CommentViewSet(WorldScopedMixin, viewsets.ModelViewSet):
         comment = Comment.objects.create(
             world=world, chapter=chapter, page=page, parent=parent, author=request.user,
             body=data["body"], quote="" if parent else data.get("quote", "").strip(),
+            quote_occurrence=0 if parent or not data.get("quote", "").strip() else data["quote_occurrence"],
         )
         return Response(self.get_serializer(comment).data, status=status.HTTP_201_CREATED)
 

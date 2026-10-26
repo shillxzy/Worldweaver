@@ -92,6 +92,8 @@ class Comment(models.Model):
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     body = models.TextField(max_length=4000)
     quote = models.CharField(max_length=500, blank=True, help_text="Фрагмент тексту, до якого стосується коментар.")
+    # Which occurrence of ``quote`` in the text was selected (0 = the first), so the highlight lands on that place.
+    quote_occurrence = models.PositiveIntegerField(default=0)
     resolved = models.BooleanField(default=False)
     resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
