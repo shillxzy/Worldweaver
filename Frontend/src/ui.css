@@ -111,7 +111,8 @@ button.ev:hover { border-color: var(--accent); }
 
 /* Book workspace */
 .book-layout { display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: start; }
-.chapter-list { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 16px; }
+/* The chapter list scrolls on its own (a long book must not drag the page); the page keeps the browser's scrollbar. */
+.chapter-list { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding-right: 4px; }
 .chapter-item { display: flex; align-items: center; border-radius: 8px; }
 .chapter-item.on { background: var(--accent-bg); }
 .chapter-item:hover .chapter-acts { opacity: 1; }
@@ -193,7 +194,7 @@ button.issue:hover { background: var(--hover); }
 }
 @media (max-width: 860px) {
   .book-layout, .an-grid, .an-layout, .row2, .versions { grid-template-columns: 1fr; }
-  .chapter-list { position: static; }
+  .chapter-list { position: static; max-height: 40vh; }
   .editor-paper { padding: 28px 22px; }
 }
 

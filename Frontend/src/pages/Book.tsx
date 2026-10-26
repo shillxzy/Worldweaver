@@ -30,6 +30,7 @@ export default function BookPage({ book, focus }: { book: Book; focus?: string }
   const view = access.edit ? mode : 'read'
   const [commentsOpen, setCommentsOpen] = useState(false)
   const mainRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLElement>(null)
   const [activeId, setActiveId] = useState<number | null>(focusChapter)
   const [importing, setImporting] = useState(false)
   const [deleting, setDeleting] = useState<ChapterSummary | null>(null)
@@ -91,6 +92,17 @@ export default function BookPage({ book, focus }: { book: Book; focus?: string }
     setFocusId(id)
     ranges.current.get(id)?.startContainer.parentElement?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }
+
+  // Keep the open chapter visible in the list (e.g. after "next chapter" or a link to chapter 80).
+  useEffect(() => {
+    const list = listRef.current
+    const item = list?.querySelector<HTMLElement>('.chapter-item.on')
+    if (!list || !item) return
+    const top = item.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop
+    if (top < list.scrollTop || top + item.offsetHeight > list.scrollTop + list.clientHeight) {
+      list.scrollTo({ top: top - list.clientHeight / 3, behavior: 'smooth' })
+    }
+  }, [activeIdResolved, chapters.data])
 
   useEffect(() => {
     try { sessionStorage.setItem('ww-book-open', open ? String(book.id) : '') } catch { /* optional */ }
@@ -164,7 +176,7 @@ export default function BookPage({ book, focus }: { book: Book; focus?: string }
             <button className="btn-ghost" onClick={() => setImporting(true)}>{t('bk.import')}</button></div> : undefined} />
       ) : (
         <div className={'book-layout' + (commentsOpen ? ' with-comments' : '')}>
-          <nav className="chapter-list">
+          <nav className="chapter-list" ref={listRef}>
             {list.map((c, i) => {
               // An arc heading opens each run of chapters of one arc (in reading order).
               const arc = c.arc !== null ? arcOf.get(c.arc) : undefined
