@@ -97,27 +97,52 @@ SCAN_TASK = (
 
 
 JUDGE_VERDICTS = {
-    "contradiction": "A справді неможливе, якщо правдиве B, і текст цього ніяк не пояснює",
+    "contradiction": "A і B не можуть бути правдою одночасно, і текст цього ніяк не пояснює — справжній ляп автора",
+    "sequence": "A і B — різні моменти: між ними щось сталося або минув час (прибув, одужав, втік, змінив план)",
     "mention_only": "персонажа чи подію лише згадують, обговорюють, розслідують, згадують тіло чи смерть — він сам не діє",
-    "explained": "суперечність пояснено в тексті (протез, лікування, воскресіння, флешбек, сон, план, чутка, маскування)",
-    "irony_or_opinion": "сарказм, жарт, перебільшення, погроза або думка чи помилка персонажа",
+    "character_belief": "так каже або думає персонаж: він може помилятися, не знати правди, брехати чи переказувати чутку",
+    "explained": "суперечність пояснено в тексті (протез, лікування, воскресіння, флешбек, сон, план, маскування)",
+    "irony_or_opinion": "сарказм, жарт, перебільшення, погроза або оцінка",
     "consistent": "A і B узгоджуються або говорять про різне",
     "different_entity": "ідеться про різних людей, предмети чи місця з подібними назвами",
     "not_enough_info": "з цих уривків вирішити неможливо",
 }
 
+# The usual false alarms, with made-up examples (never quotes from a user's book).
+JUDGE_PITFALLS = (
+    "Типові хибні тривоги (це НЕ ляпи):\n"
+    "- Порядок подій: «Капітан скоро прибуде» … далі «На поріг ступив капітан» — він прибув (sequence).\n"
+    "- Минув час: рану отримав у розділі 10, а в розділі 40 вільно рухає рукою — зажило (sequence).\n"
+    "- Персонаж не знає правди: «Кажуть, барона вбили контрабандисти», хоча насправді його вбив герой (character_belief).\n"
+    "- Згадка: «Він дивився на тіло Кая» після смерті Кая — Кай не діє (mention_only).\n"
+    "- Затримали, а потім загинув: одне не заперечує іншого, якщо між ними щось сталося (sequence).\n"
+    "- Іронія: «Спитай у покійного Мора» — жарт, а не воскресіння (irony_or_opinion).\n"
+    "Справжній ляп виглядає так: оповідач у розділі 5 каже, що тіло знайшли в квартирі, а в розділі 9 — що біля "
+    "машини на узбіччі, і ніхто в тексті не пояснює розбіжності (contradiction)."
+)
+
 JUDGE_TASK = (
-    "Перевір одну підозру на сюжетний ляп у романі. Нижче — опис підозри, уривок A з розділу, де нібито ляп "
+    "Перевір одну підозру на сюжетний ляп у романі. Нижче — підозра, уривок A з розділу, де нібито ляп "
     "(цитата позначена ⟦ ⟧), і уривок B — те, чому він нібито суперечить (раніше в книзі або довідка "
-    "енциклопедії). Прочитай ЦІЛІ уривки, а не лише цитати, й обери verdict:\n"
+    "енциклопедії). Якщо обидва місця в одному розділі, дано ОДИН суцільний уривок від першого до другого: "
+    "прочитай усе, що між ними, — пояснення часто саме там.\n"
+    "Спершу коротко відповідай на питання, і лише потім обирай verdict:\n"
+    "a — що саме стверджує A; b — що стверджує B; time — чи могли обидва бути правдою в різні моменти "
+    "(що сталося між ними); who — хто це стверджує: оповідач чи персонаж (персонаж може помилятися).\n"
+    "Вердикти:\n"
     + "\n".join(f"- {k}: {v};" for k, v in JUDGE_VERDICTS.items())
-    + "\nЛяп — лише contradiction. Якщо сумніваєшся між contradiction та іншим вердиктом — обери інший. "
-    'Відповідай JSON {"verdict": "...", "reason": "одне речення українською"}.'
+    + "\n\n" + JUDGE_PITFALLS
+    + "\n\nЛяп — лише contradiction. Якщо сумніваєшся між contradiction та іншим вердиктом — обери інший."
 )
 JUDGE_JSON_SCHEMA = {
     "type": "object",
-    "properties": {"verdict": {"type": "string", "enum": list(JUDGE_VERDICTS)}, "reason": {"type": "string"}},
-    "required": ["verdict", "reason"],
+    "properties": {
+        # Reasoning first: the verdict comes after the model has looked at time and the speaker.
+        "a": {"type": "string"}, "b": {"type": "string"}, "time": {"type": "string"}, "who": {"type": "string"},
+        "verdict": {"type": "string", "enum": list(JUDGE_VERDICTS)},
+        "reason": {"type": "string"},
+    },
+    "required": ["a", "b", "time", "who", "verdict", "reason"],
 }
 
 
@@ -281,18 +306,27 @@ class AIService:
             self._scan_facts(data.validated_data["facts"], text, offset),
         )
 
-    def judge(self, draft, passage_a, passage_b):
+    def judge(self, draft, passage_a, passage_b=None, lessons=()):
         """Second opinion on one candidate, made on the original paragraphs of both places.
+
+        ``passage_b`` is None when both places are in one chapter: ``passage_a`` then runs from the first to the
+        second, with everything between them. Only the claim is shown, not the first model's argument for it
+        (the judge used to repeat it). ``lessons`` are the author's earlier decisions on findings of this world.
 
         Returns the verdict (one of ``JUDGE_VERDICTS``). Only "contradiction" keeps the finding; the reason is
         added to its explanation. A malformed answer counts as "not_enough_info" (the candidate is dropped).
         """
-        user = (
-            f"{JUDGE_TASK}\n\nПідозра: {draft.summary}\nПояснення: {draft.explanation}\n\n"
-            + _quote_block("A", "Розділ із підозрою", passage_a) + "\n\n" + _quote_block("B", "Чому суперечить", passage_b)
-        )
+        if passage_b is None:
+            places = _quote_block("A", "Обидва місця в одному розділі, по порядку", passage_a)
+        else:
+            places = _quote_block("A", "Розділ із підозрою", passage_a) + "\n\n" + _quote_block("B", "Чому суперечить", passage_b)
+        taught = ""
+        if lessons:
+            taught = ("\n\nРішення автора щодо попередніх підозр у цій книзі (не повторюй відхилених помилок):\n"
+                      + "\n".join(f"- {line}" for line in lessons))
+        user = f"{JUDGE_TASK}{taught}\n\nПідозра: {draft.summary}\n\n{places}"
         try:
-            raw = self.judge_backend.chat_json(SYSTEM_BASE, user, JUDGE_JSON_SCHEMA, max_tokens=600)
+            raw = self.judge_backend.chat_json(SYSTEM_BASE, user, JUDGE_JSON_SCHEMA, max_tokens=1200)
         except AIResponseError:
             return "not_enough_info"
         finally:

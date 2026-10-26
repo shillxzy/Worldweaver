@@ -99,6 +99,7 @@ def process_story_job(job, ai_service_factory, heartbeat, persist_findings, stat
     services = [service] + [ai_service_factory() for _ in range(workers - 1)]
     done, wall, failed_total = 0, 0.0, 0
     verdicts, judged, failures, judge_models = Counter(), [], Counter(), Counter()
+    lessons = author_lessons(job.world)
     chapter_texts = {c.id: (c.title, c.text) for c in snap.chapters}
     ai_status, ai_error = "ok", ""
     for position, (chapter, chunks) in enumerate(plan, 1):
@@ -120,7 +121,7 @@ def process_story_job(job, ai_service_factory, heartbeat, persist_findings, stat
             break  # chapters finished so far are saved; the next run continues from here
         chapter_drafts, chapter_facts = [], []
         try:
-            judged_results = [(found, facts, judge_all(service, found, chapter_texts, job, heartbeat)) for found, facts in results]
+            judged_results = [(found, facts, judge_all(service, found, chapter_texts, job, heartbeat, lessons)) for found, facts in results]
         except AIUnavailable as error:
             ai_status, ai_error = "unavailable", str(error)
             break  # this chapter is not saved: the next run judges it again
@@ -151,6 +152,25 @@ def process_story_job(job, ai_service_factory, heartbeat, persist_findings, stat
 
 
 PASSAGE_CHARS = 1200  # on each side of a quote: the judge sees whole paragraphs, not a sentence
+SPAN_CHARS = 8000  # two places in one chapter closer than this are shown as one passage, with all that lies between
+LESSONS = 12
+
+DECISION_LESSON = {
+    Finding.Decision.REJECTED: "Відхилено (не ляп)",
+    Finding.Decision.IGNORED: "Так задумано автором",
+    Finding.Decision.ACCEPTED: "Прийнято (справжній ляп)",
+}
+
+
+def author_lessons(world):
+    """The author's latest decisions on AI findings of this world, as short lines for the judge."""
+    decided = (Finding.objects.filter(world=world, source=Finding.Source.AI).exclude(decision=Finding.Decision.NEW)
+               .order_by("-id")[:LESSONS])
+    lines = []
+    for f in decided:
+        note = f" — {f.decision_note.strip()[:200]}" if f.decision_note.strip() else ""
+        lines.append(f"{DECISION_LESSON.get(f.decision, f.decision)}: {f.summary[:200]}{note}")
+    return lines
 
 
 def passage(evidence, chapter_texts):
@@ -164,21 +184,41 @@ def passage(evidence, chapter_texts):
     return f"{evidence.label}: {evidence.quote}"
 
 
-def judge_all(service, drafts, chapter_texts, job, heartbeat):
+def judge_all(service, drafts, chapter_texts, job, heartbeat, lessons=()):
     """2. Second opinion on each candidate, on the original paragraphs of both places (not on short quotes or a
     retelling). Returns [(verdict, model that judged)]. ``AIUnavailable`` stops the scan."""
     out = []
     for draft in drafts:
-        out.append((judge_in_context(service, draft, chapter_texts), service.last_judge_model))
+        out.append((judge_in_context(service, draft, chapter_texts, lessons), service.last_judge_model))
         heartbeat(job)
     return out
 
 
-def judge_in_context(service, draft, chapter_texts):
+def span_passage(a, b, chapter_texts):
+    """Both places in one chapter and close enough: one passage from the first to the second, both quotes marked.
+    None otherwise. What happens between them ("he will arrive soon" … "it was him") is often the explanation."""
+    if not (a.source_type == b.source_type == "chapter" and a.source_id == b.source_id and a.source_id in chapter_texts):
+        return None
+    if a.start is None or b.start is None:
+        return None
+    title, text = chapter_texts[a.source_id]
+    first, second = sorted([(a.start, a.end or a.start + len(a.quote)), (b.start, b.end or b.start + len(b.quote))])
+    if second[0] < first[1] or second[1] - first[0] > SPAN_CHARS:
+        return None  # overlapping quotes or too far apart: two separate passages
+    before = text[max(0, first[0] - PASSAGE_CHARS):first[0]]
+    after = text[second[1]:second[1] + PASSAGE_CHARS]
+    return (f"Розділ «{title}»: …{before}⟦{text[first[0]:first[1]]}⟧{text[first[1]:second[0]]}"
+            f"⟦{text[second[0]:second[1]]}⟧{after}…")
+
+
+def judge_in_context(service, draft, chapter_texts, lessons=()):
     if len(draft.evidence) < 2:
         return "not_enough_info"
     try:
-        return service.judge(draft, passage(draft.evidence[0], chapter_texts), passage(draft.evidence[1], chapter_texts))
+        span = span_passage(draft.evidence[0], draft.evidence[1], chapter_texts)
+        if span is not None:
+            return service.judge(draft, span, None, lessons)
+        return service.judge(draft, passage(draft.evidence[0], chapter_texts), passage(draft.evidence[1], chapter_texts), lessons)
     except AIUnavailable:
         raise
     except AIError:
