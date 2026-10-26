@@ -539,3 +539,73 @@ def test_gemini_error_body_of_any_shape_does_not_crash(monkeypatch):
     odd = FakeResponse(503, ["overloaded"])
     backend, sent = gemini(monkeypatch, wrapped, odd, answer_with('{"ok": true}'))
     assert backend.chat_json("s", "u") == {"ok": True} and len(sent) == 3
+
+
+def test_a_dead_characters_body_is_not_the_one_acting(world, book, chapter):
+    from apps.analysis.engine.loader import load_snapshot
+    from apps.analysis.engine.manuscript import ManuscriptAnalyzer
+
+    later = Chapter.objects.create(book=book, title="Розділ 2", order=1)
+    set_text(later, "Картер, озираючись на розтерзане тіло Фостера, крикнув з агонією. Над могилою Фостера стояв Брюс.")
+    Character.objects.create(world=world, name="Фостер", status="dead", death_chapter=chapter)
+    assert not ManuscriptAnalyzer(load_snapshot(world)).dead_character_active()
+    set_text(later, "— Ходімо, — сказав Фостер.")  # he himself speaks: still reported
+    assert ManuscriptAnalyzer(load_snapshot(world)).dead_character_active()
+
+
+def test_judge_reads_all_that_lies_between_two_places_in_one_chapter():
+    from apps.analysis.engine.types import EvidenceDraft, FindingDraft
+    from apps.analysis.story_scan import judge_in_context
+
+    text = "Капітан скоро прибуде сюди. " + "Минали години. " * 20 + "Двері відчинились: на поріг ступив капітан."
+    first, second = "Капітан скоро прибуде сюди", "на поріг ступив капітан"
+    draft = FindingDraft(rule="ai_story:x", category="potential", severity="warning", source="ai",
+                         summary="Капітан і в дорозі, і вже тут", explanation="Перша модель вважає це ляпом.", evidence=[
+        EvidenceDraft("chapter", 7, "Розділ 5", second, text.index(second), text.index(second) + len(second), True),
+        EvidenceDraft("chapter", 7, "Розділ 5", first, 0, len(first), True),
+    ])
+    backend = FakeBackend({"a": "", "b": "", "time": "він прибув", "who": "оповідач", "verdict": "sequence", "reason": "Прибув."})
+    verdict = judge_in_context(AIService(backend), draft, {7: ("Розділ 5", text)}, ["Відхилено (не ляп): Россі живий"])
+    prompt = backend.calls[0]
+    assert verdict == "sequence"
+    # one passage in reading order, both quotes marked, everything between them included
+    assert prompt.index("⟦Капітан скоро прибуде сюди⟧") < prompt.index("Минали години.") < prompt.index("⟦на поріг ступив капітан⟧")
+    assert "одному розділі" in prompt and "Відхилено (не ляп): Россі живий" in prompt
+    assert "Перша модель вважає це ляпом" not in prompt  # the first model's argument is not shown to the judge
+
+
+def test_judge_learns_from_the_authors_decisions(world, book, user, saga):
+    Finding.objects.create(world=world, chapter=saga["middle"], rule="ai_story:x", fingerprint="f1", category="potential",
+                           severity="warning", source="ai", summary="Россі згадується живим", decision="rejected",
+                           decision_note="це іронія")
+    seen = []
+
+    def answer(prompt):
+        if "Перевір одну підозру" in prompt:
+            seen.append(prompt)
+        return story_answer(prompt)
+
+    run_book_scan(world, book, user, FakeBackend(answer))
+    assert seen and "Відхилено (не ляп): Россі згадується живим — це іронія" in seen[0]
+
+
+def test_gemini_retries_a_dropped_connection_but_not_forever(monkeypatch):
+    backend, _ = gemini(monkeypatch, answer_with('{"ok": true}'))
+    real_post = requests.Session.post
+    calls = []
+
+    def flaky(self, url, **kwargs):
+        calls.append(url)
+        if len(calls) == 1:
+            raise requests.ConnectionError("Remote end closed connection without response")
+        return real_post(self, url, **kwargs)
+
+    monkeypatch.setattr(requests.Session, "post", flaky)
+    assert backend.chat_json("s", "u") == {"ok": True} and len(calls) == 2
+
+    def offline(self, url, **kwargs):
+        raise requests.ConnectionError("no route")
+
+    monkeypatch.setattr(requests.Session, "post", offline)
+    with pytest.raises(AIUnavailable):
+        backend.chat_json("s", "u")
