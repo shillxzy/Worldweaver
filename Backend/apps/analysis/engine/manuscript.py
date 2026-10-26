@@ -41,6 +41,11 @@ ACTION_RE = re.compile(
     r"махну(?:в|ла)|наказа(?:в|ла)|пообіця(?:в|ла)|поверну(?:вся|лася|лась)|чека(?:в|ла))\b)"
 )
 DIALOGUE_RE = re.compile(r"^\s*[—–-]\s")
+# "тіло Фостера", "над могилою Кая", "смерть Аміра": the name belongs to an object, the verb nearby is someone else's.
+OBJECT_BEFORE_NAME = re.compile(
+    r"(?i:\b(?:тіл[оаоуі]|тілом|трупа?|трупом|останк\w*|могил\w*|смерт\w*|загибел\w*|вбивств\w*|похорон\w*|"
+    r"фото\w*|портрет\w*|кров\w*|ім['’ʼ]?я|імені)\s+$)"
+)
 MEMORY_RE = re.compile(
     r"(?i:згад\w*|спогад\w*|пам['’ʼ]?ят\w*|колись|давно|минул\w*|сн(?:и|о)\w*|снил\w*|наснил\w*|"
     r"привид\w*|дух\w*|могил\w*|похорон\w*|покійн\w*|мертв\w*|загибл\w*|портрет\w*|видінн\w*|марев\w*|"
@@ -87,6 +92,8 @@ class ManuscriptAnalyzer:
         """Does the sentence show the character acting/speaking (not remembered)?"""
         start, end, sentence = sentence_at(chapter.text, mention.start, self.spans(chapter))
         if not sentence or MEMORY_RE.search(sentence):
+            return False, sentence, start
+        if OBJECT_BEFORE_NAME.search(chapter.text[max(0, mention.start - 30): mention.start]):
             return False, sentence, start
         line_start = chapter.text.rfind("\n", 0, mention.start) + 1
         line = chapter.text[line_start: chapter.text.find("\n", mention.start) if "\n" in chapter.text[mention.start:] else len(chapter.text)]
