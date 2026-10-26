@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import type { ApiError } from '../api/client'
 import { useApp } from '../settings-context'
@@ -39,14 +40,16 @@ export function Modal({ title, onClose, children, wide, footer }: {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
-  return (
+  // Rendered into <body>: a modal opened from the sticky sidebar must not stay under page content.
+  return createPortal(
     <div className="modal-back" onMouseDown={onClose}>
       <div className={'modal' + (wide ? ' wide' : '')} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-head"><h3>{title}</h3><button type="button" className="icon-btn" onClick={onClose} aria-label="close">×</button></div>
         <div className="modal-body">{children}</div>
         {footer && <div className="acts">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
