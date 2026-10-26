@@ -15,7 +15,7 @@ Browser (React + Tiptap) ──/api/v1 (session cookie + CSRF)──▶ Django R
 | `apps.common` | Єдиний формат помилок, пагінація, ізоляція даних (`WorldScopedMixin`, `WorldRelatedField`, `parse_id`), Unicode-`LIKE` для SQLite |
 | `apps.accounts` | Реєстрація, вхід/вихід, профіль, налаштування (`Profile`), зміна пароля, видалення акаунта |
 | `apps.worlds` | `World`, `Tag`, `LoreEntry`, `Character`, `Faction`, `FactionMembership`, `TimelineEvent`, `EventParticipant`, `TimelineDependency`, `Relationship`; пошук у світі |
-| `apps.books` | `Book`, `Chapter`, `ChapterVersion`; валідація документів Tiptap; DOCX імпорт/експорт; глобальний пошук; `seed_demo` |
+| `apps.books` | `Book`, `Arc` (частини книги), `Chapter`, `ChapterVersion`; валідація документів Tiptap; DOCX імпорт/експорт; глобальний пошук; `seed_demo` |
 | `apps.boards` | `Board`, `BoardItem`, `BoardConnection`; збереження розкладки |
 | `apps.analysis` | Алгоритмічне ядро (`engine/`), `AnalysisJob`, `Finding`, `Evidence`, черга й worker, швидкі перевірки |
 | `apps.ai` | `AIService` (доменні операції) + `GeminiBackend` (адаптер), схеми відповідей моделі |
