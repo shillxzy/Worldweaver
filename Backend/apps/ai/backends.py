@@ -78,7 +78,7 @@ class GeminiBackend:
         if not self.api_key:
             raise AIUnavailable("Немає ключа Gemini: додайте GEMINI_API_KEY у Backend/.env.")
         url = f"{API_ROOT}/models/{model}:generateContent"
-        overloaded = 0
+        overloaded = dropped = 0
         for attempt in range(6):
             self._pace()
             try:
@@ -94,7 +94,13 @@ class GeminiBackend:
                     raise AIUnavailable("Gemini не відповідає. Спробуйте пізніше.") from None
                 continue
             except requests.RequestException as exc:
-                raise AIUnavailable("Немає зʼєднання з Gemini (перевірте інтернет).") from exc
+                # One dropped connection is common on long scans; only a lasting failure means "no internet".
+                dropped += 1
+                logger.warning("Gemini connection error (model %s, attempt %d)", model, attempt + 1)
+                if dropped >= 3:
+                    raise AIUnavailable("Немає зʼєднання з Gemini (перевірте інтернет).") from exc
+                time.sleep(2 * dropped)
+                continue
             status = response.status_code
             if status == 200:
                 self.last_model = model
